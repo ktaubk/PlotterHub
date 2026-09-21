@@ -45,6 +45,64 @@ def parse_dim_to_mm(s: str) -> float | None:
     return None
 
 
+# Shapes a pen can trace. <use>, <image> and <text> are left alone: a <use>
+# inherits its geometry's styling from elsewhere, and the others aren't
+# outlines.
+OUTLINE_TAGS = frozenset(
+    f"{{{SVG_NS}}}{t}" for t in
+    ("path", "rect", "circle", "ellipse", "line", "polyline", "polygon")
+)
+
+
+def _declared(el, prop: str) -> str | None:
+    """``prop`` as set on ``el`` itself: inline style wins over the attribute."""
+    for decl in (el.get("style") or "").split(";"):
+        key, _, value = decl.partition(":")
+        if key.strip() == prop:
+            return value.strip()
+    return el.get(prop)
+
+
+def strip_unstroked(svg_path: Path) -> int:
+    """Remove shapes explicitly styled ``stroke: none``, in place.
+
+    A pen plotter traces every outline it is given, so a shape SVG says has
+    no stroke gets drawn anyway: vpype re-emits it as a stroked line, and
+    NextDraw only consults fills for its optional hidden-line mode. The usual
+    victim is a Processing/py5 export, which paints a white background rect
+    and white occlusion masks — each of which then plots as a border or a
+    stray outline.
+
+    Only an *explicit* ``none`` (on the shape or an ancestor) counts. A shape
+    with no stroke declared at all is kept, because its stroke may come from
+    a CSS class this doesn't resolve, and dropping it could delete the whole
+    drawing. Returns how many shapes were removed; the file is rewritten
+    only if that's non-zero.
+    """
+    tree = etree.parse(str(svg_path))
+    removed = 0
+
+    def walk(parent, inherited: str | None) -> None:
+        nonlocal removed
+        for child in list(parent):
+            if not isinstance(child.tag, str) or child.tag == DEFS_TAG:
+                continue
+            own = _declared(child, "stroke")
+            stroke = own if own is not None else inherited
+            if child.tag in OUTLINE_TAGS:
+                if stroke is not None and stroke.lower() == "none":
+                    parent.remove(child)
+                    removed += 1
+            else:
+                walk(child, stroke)
+
+    root = tree.getroot()
+    walk(root, _declared(root, "stroke"))
+    if removed:
+        tree.write(str(svg_path), xml_declaration=True, encoding="utf-8")
+    return removed
+
+
 def _top_level_layers(root):
     return [g for g in root if g.tag == LAYER_TAG and g.get(GROUPMODE_ATTR) == "layer"]
 

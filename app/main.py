@@ -118,6 +118,7 @@ async def upload(file: UploadFile = File(...)):
     path = UPLOAD_DIR / f"{svg_id}.svg"
     path.write_bytes(data)
     try:
+        svg_utils.strip_unstroked(path)
         info = svg_utils.parse_layers(path)
     except Exception:
         path.unlink(missing_ok=True)
@@ -486,6 +487,7 @@ async def api_create_job(file: UploadFile = File(...),
     path = UPLOAD_DIR / f"{svg_id}.svg"
     path.write_bytes(await file.read())
     try:
+        svg_utils.strip_unstroked(path)
         info = svg_utils.parse_layers(path)
     except Exception as e:
         path.unlink(missing_ok=True)
