@@ -58,6 +58,8 @@ _WORKER_ERROR_CODES: dict[str, str] = {
     "Calibration plot only available at a pen-change pause": "calibrate_not_at_pause",
     "This job has no calibration layers": "no_calibration_layers",
     "No active job": "no_active_job",
+    "Plotter is busy": "plotter_busy",
+    "Could not connect to the plotter": "plotter_not_connected",
 }
 
 
@@ -737,6 +739,15 @@ def requeue_job(job_id: str):
 
 
 # Queue control ----------------------------------------------------------
+
+@app.post("/plotter/sleep")
+def plotter_sleep():
+    try:
+        plot_worker.sleep_position()
+    except RuntimeError as e:
+        raise _worker_error(e)
+    return {"ok": True}
+
 
 @app.post("/queue/start")
 def start_queue():

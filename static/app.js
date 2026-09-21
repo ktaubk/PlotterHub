@@ -1421,6 +1421,8 @@ function applyTopControls() {
   // not waiting between jobs).
   const busy = !!s.active_id || !!s.awaiting_next_job;
   shutdownBtn.disabled = busy;
+  sleepBtn.disabled = busy || sleepPending;
+  sleepBtn.title = busy ? t("a11y.sleep_busy") : t("a11y.sleep");
   shutdownBtn.title = busy
     ? t("a11y.shutdown_busy")
     : t("a11y.shutdown");
@@ -1839,6 +1841,27 @@ function resetSettingsSpeed() {
 // ───── Shutdown modal ────────────────────────────────────────────────────
 
 const shutdownBtn = $("shutdown-btn");
+
+// Sleep: park the carriage at mid-rail. The request returns once the move is
+// done; the button stays disabled until then so it can't be double-fired.
+const sleepBtn = $("sleep-btn");
+let sleepPending = false;
+sleepBtn.addEventListener("click", async () => {
+  if (sleepPending) return;
+  sleepPending = true;
+  sleepBtn.disabled = true;
+  try {
+    const res = await fetch("/plotter/sleep", { method: "POST" });
+    if (!res.ok) throw new Error(await readErr(res));
+  } catch (e) {
+    topMessage.textContent = t("error.request_failed", { message: e.message });
+    topMessage.className = "error";
+  } finally {
+    sleepPending = false;
+    const s = serverState || {};
+    sleepBtn.disabled = !!s.active_id || !!s.awaiting_next_job;
+  }
+});
 const shutdownModal = $("shutdown-modal");
 const shutdownCancel = $("shutdown-cancel");
 const shutdownConfirm = $("shutdown-confirm");

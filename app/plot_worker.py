@@ -42,6 +42,7 @@ _continue_event = threading.Event()        # continue: pen change within a job, 
 _calibrate_event = threading.Event()       # set alongside _continue_event to request a calibration plot from the awaiting_pen_change pause
 _worker_thread: threading.Thread | None = None
 _worker_lock = threading.Lock()
+_sleep_lock = threading.Lock()             # held while the sleep-position move owns the USB port
 
 _poll_thread: threading.Thread | None = None
 _stop_polling = threading.Event()
@@ -420,6 +421,38 @@ def start_queue() -> None:
         t.start()
 
 
+def sleep_position() -> None:
+    """Park the carriage for idle time: pen up, X at mid-rail, Y at home.
+
+    Uses the interactive API's absolute moveto(). The utility-mode walk
+    commands (walk_x / walk_mmx) are no good here: they move the plot origin
+    along with the carriage, so every later plot would start half a rail
+    over. connect() raises the pen and establishes the true position via
+    find_home() — reading the step counter, or running the homing sweep on a
+    NextDraw that has lost its reference.
+    """
+    if not _sleep_lock.acquire(blocking=False):
+        raise RuntimeError("Plotter is busy")
+    try:
+        snap = state.snapshot()
+        worker_alive = _worker_thread is not None and _worker_thread.is_alive()
+        if snap["active_id"] or snap["awaiting_next_job"] or worker_alive:
+            raise RuntimeError("Plotter is busy")
+        ad = NextDraw()
+        ad.interactive()
+        _apply_machine_options(ad)
+        if not ad.connect():
+            raise RuntimeError("Could not connect to the plotter")
+        try:
+            # Interactive units default to inches, as is params.travel_x.
+            ad.moveto(ad.params.travel_x / 2, 0)
+            ad.block()
+        finally:
+            ad.disconnect()
+    finally:
+        _sleep_lock.release()
+
+
 def pause_active() -> None:
     state.set_pause_at_pen_up_pending(False)
     if _current_ad is not None:
@@ -569,6 +602,10 @@ def shutdown_gracefully(timeout_s: float = 30.0) -> None:
 # Queue loop ---------------------------------------------------------------
 
 def _queue_loop() -> None:
+    # A sleep-position move started just before Plot still owns the USB port;
+    # let it finish rather than racing it for the plotter.
+    with _sleep_lock:
+        pass
     try:
         while True:
             if _cancel_flag.is_set():
