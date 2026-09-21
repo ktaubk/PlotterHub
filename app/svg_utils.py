@@ -3,6 +3,10 @@ import re
 from lxml import etree
 from pathlib import Path
 
+# CSS reference pixel. An SVG with no viewBox has a user-unit space measured
+# in px, so this converts a physical width back into user units.
+PX_PER_MM = 96.0 / 25.4
+
 SVG_NS = "http://www.w3.org/2000/svg"
 INKSCAPE_NS = "http://www.inkscape.org/namespaces/inkscape"
 NS = {"svg": SVG_NS, "inkscape": INKSCAPE_NS}
@@ -139,8 +143,13 @@ def transform_to_paper(
         parts = vb.split()
         vb_x, vb_y, vb_w, vb_h = (float(p) for p in parts[:4])
     else:
+        # No viewBox: per SVG, one user unit is one CSS px, so the viewport's
+        # extent in user units is its physical size converted to px. Using the
+        # millimetre figure here instead would leave the drawing scaled by the
+        # px:mm ratio (~3.78x) and hanging off the page — which is what a
+        # Processing/Batik export (width="600" height="700", no viewBox) hit.
         vb_x, vb_y = 0.0, 0.0
-        vb_w, vb_h = orig_w_mm, orig_h_mm
+        vb_w, vb_h = orig_w_mm * PX_PER_MM, orig_h_mm * PX_PER_MM
 
     available_w = max(0.0, paper_width_mm - margin_left_mm - margin_right_mm)
     available_h = max(0.0, paper_height_mm - margin_top_mm - margin_bottom_mm)
