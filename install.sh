@@ -20,13 +20,20 @@ UNIT_DST="/etc/systemd/system/$SERVICE_NAME.service"
 # fork updates from the fork, not from upstream; SSH remotes are rewritten to
 # HTTPS because the fetch runs as the unprivileged service user, which has no
 # deploy key. Falls back to upstream when origin is missing or not a git URL.
+#
+# Read .git/config directly rather than `git remote get-url`: on the
+# self-update path this script runs as root, and git refuses to operate on a
+# repo owned by another user ("dubious ownership"). That failure used to be
+# silent, fell through to the upstream URL, and baked it into the update
+# wrapper — so the *next* update reset a fork onto upstream.
 UPSTREAM_URL="https://github.com/Synendo/PlotterHub.git"
-REPO_URL="$(git -C "$PROJECT_DIR" remote get-url origin 2>/dev/null || true)"
+REPO_URL="$(git config --file "$PROJECT_DIR/.git/config" --get remote.origin.url 2>/dev/null || true)"
 case "$REPO_URL" in
     git@*:*)      REPO_URL="${REPO_URL#git@}"; REPO_URL="https://${REPO_URL/://}" ;;
     ssh://git@*)  REPO_URL="https://${REPO_URL#ssh://git@}" ;;
     https://*|http://*) ;;
-    *)            REPO_URL="$UPSTREAM_URL" ;;
+    *)            echo ">>> WARNING: could not read origin; self-update will track upstream ($UPSTREAM_URL)"
+                  REPO_URL="$UPSTREAM_URL" ;;
 esac
 # The service runs as a specific non-root user. Normally that's whoever invokes
 # this script; the self-update path runs the script as root inside a transient

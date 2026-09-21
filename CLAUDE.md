@@ -27,7 +27,10 @@ ssh ktaub@plotterhub.local 'sudo -n /usr/local/sbin/plotterhub-update >/dev/null
 ```
 
 It resets to `origin/main`, re-runs `install.sh`, restarts the service, and
-logs to `~/PlotterHub/update.log`. Bump `VERSION` so the change is visible.
+logs to `~/PlotterHub/update.log`. The repo URL is baked into
+`/usr/local/sbin/plotterhub-update` by `install.sh`; if a deploy ever lands on
+upstream's version, check `grep REPO_URL` there first. `install.sh` runs as
+root on this path, so anything it asks git must not need repo discovery. Bump `VERSION` so the change is visible.
 `sudo` otherwise needs the Pi password — never handle it; have the user run
 anything that needs it.
 
