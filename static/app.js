@@ -572,6 +572,9 @@ function createCardForJob(job) {
 // server will disagree about whether a file has an implicit layer.
 const SHAPE_SELECTOR = "path,rect,circle,ellipse,line,polyline,polygon,text,use,image";
 
+// CSS reference pixel — mirrors PX_PER_MM in app/svg_utils.py.
+const PX_PER_MM = 96 / 25.4;
+
 // True if the document draws anything outside <defs>. A <use> counts: it is
 // how <defs> content actually reaches the page.
 function hasPlottableContent(root) {
@@ -605,15 +608,30 @@ async function fetchSvgMeta(svg_id) {
       layers.push({ index: 0, label: t("layers.whole_document"),
                     addressable: false, implicit: true });
     }
+    const widthAttr = root.getAttribute("width") || "";
+    const heightAttr = root.getAttribute("height") || "";
+    const widthMm = parseDimToMm(widthAttr);
+    const heightMm = parseDimToMm(heightAttr);
+
+    // Without a viewBox the browser renders the document's user units 1:1 and
+    // ignores the size we give the preview box, so the drawing shows up
+    // cropped or adrift even though it plots correctly. Supply the viewBox the
+    // spec implies — the px extent — matching transform_to_paper's fallback.
+    // Serialize afterwards so the preview markup carries it.
+    if (!root.getAttribute("viewBox") && widthMm && heightMm) {
+      root.setAttribute("viewBox",
+        `0 0 ${widthMm * PX_PER_MM} ${heightMm * PX_PER_MM}`);
+    }
+
     return {
       id: svg_id,
-      width: root.getAttribute("width") || "",
-      height: root.getAttribute("height") || "",
-      width_mm: parseDimToMm(root.getAttribute("width") || ""),
-      height_mm: parseDimToMm(root.getAttribute("height") || ""),
+      width: widthAttr,
+      height: heightAttr,
+      width_mm: widthMm,
+      height_mm: heightMm,
       viewBox: root.getAttribute("viewBox") || "",
       layers,
-      text,
+      text: new XMLSerializer().serializeToString(doc),
     };
   } catch (e) {
     return null;
