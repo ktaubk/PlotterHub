@@ -5,11 +5,11 @@ the locally installed version. Detection deliberately uses the same ``git
 fetch`` path the apply step will use: if we can't reach the repo we couldn't
 update anyway, so it's honest to surface the same failure here.
 
-The fetch targets the canonical HTTPS URL explicitly rather than whatever the
-local ``origin`` happens to be — the repo is public, so HTTPS needs no
-credentials, and this works even on a checkout whose ``origin`` is an SSH URL
-with no key configured. ``git fetch`` only writes ``.git``/``FETCH_HEAD``; the
-working tree is never touched.
+The fetch targets this checkout's ``origin``, normalized to HTTPS, so a fork
+checks itself for updates instead of pulling upstream over the top of its own
+changes. The HTTPS rewrite matters because the service user has no SSH key;
+the repo is public, so HTTPS needs no credentials. ``git fetch`` only writes
+``.git``/``FETCH_HEAD``; the working tree is never touched.
 """
 import logging
 import subprocess
@@ -19,7 +19,7 @@ from . import config
 
 log = logging.getLogger(__name__)
 
-REPO_HTTPS_URL = "https://github.com/Synendo/PlotterHub.git"
+UPSTREAM_HTTPS_URL = "https://github.com/Synendo/PlotterHub.git"
 REMOTE_BRANCH = "main"
 CACHE_TTL_S = 3600  # don't hammer GitHub on every page poll
 
@@ -59,13 +59,40 @@ def semver_gt(a: str | None, b: str | None) -> bool:
     return pa > pb
 
 
+def repo_https_url() -> str:
+    """This checkout's ``origin``, as an HTTPS URL.
+
+    ``git@host:owner/repo.git`` and ``ssh://git@host/owner/repo.git`` are
+    rewritten to HTTPS; anything unrecognizable (or a checkout with no
+    ``origin``) falls back to upstream.
+    """
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(config.BASE_DIR), "remote", "get-url", "origin"],
+            capture_output=True, text=True, timeout=5.0,
+        )
+    except (subprocess.SubprocessError, OSError):
+        return UPSTREAM_HTTPS_URL
+    url = out.stdout.strip()
+    if out.returncode != 0 or not url:
+        return UPSTREAM_HTTPS_URL
+    if url.startswith(("https://", "http://")):
+        return url
+    if url.startswith("ssh://git@"):
+        return "https://" + url[len("ssh://git@"):]
+    if url.startswith("git@") and ":" in url:
+        host, _, path = url[len("git@"):].partition(":")
+        return f"https://{host}/{path}"
+    return UPSTREAM_HTTPS_URL
+
+
 def fetch_remote_version(timeout: float = 8.0) -> str | None:
     """Return the VERSION file content on origin/main, or None on any error."""
     base = str(config.BASE_DIR)
     try:
         subprocess.run(
             ["git", "-C", base, "fetch", "--quiet",
-             REPO_HTTPS_URL, REMOTE_BRANCH],
+             repo_https_url(), REMOTE_BRANCH],
             check=True, capture_output=True, timeout=timeout,
         )
         out = subprocess.run(

@@ -1,4 +1,4 @@
-"""Subprocess entry point for running a pyaxidraw preview.
+"""Subprocess entry point for running a NextDraw preview.
 
 Invoked by plot_worker so the preview can be SIGTERM'd if the user cancels
 during the planning phase. Prints a single JSON line on success; exits
@@ -7,7 +7,7 @@ non-zero on error (stderr carries the exception message).
 import json
 import sys
 
-from pyaxidraw import axidraw
+from nextdraw import NextDraw
 
 
 def main() -> int:
@@ -16,12 +16,19 @@ def main() -> int:
     speed_pendown = int(sys.argv[3])
     speed_penup = int(sys.argv[4])
     acceleration = int(sys.argv[5])
+    handling = int(sys.argv[6])
+    penlift = int(sys.argv[7])
 
-    ad = axidraw.AxiDraw()
+    ad = NextDraw()
     ad.plot_setup(svg_path)
     ad.options.mode = "plot"
     ad.options.preview = True
+    # Nothing is rendered from the preview — we only read the time/distance
+    # stats — so skip building the preview path graphics.
+    ad.options.rendering = False
     ad.options.model = model
+    ad.options.handling = handling
+    ad.options.penlift = penlift
     ad.options.speed_pendown = speed_pendown
     ad.options.speed_penup = speed_penup
     ad.options.accel = acceleration

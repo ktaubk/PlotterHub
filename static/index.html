@@ -120,17 +120,33 @@
           <label class="field">
             <span class="field-label" data-i18n="settings.plotter_model.label">Model</span>
             <select id="settings-plotter-model">
-              <option value="1">1 — AxiDraw V2 / V3 / SE A4 (215 × 279 mm)</option>
-              <option value="2">2 — AxiDraw SE A3 / iDraw H SE A3 (430 × 297 mm)</option>
-              <option value="3">3 — AxiDraw V3 XLX (595 × 218 mm)</option>
-              <option value="4">4 — AxiDraw MiniKit (150 × 210 mm)</option>
-              <option value="5">5 — AxiDraw SE A1 (842 × 594 mm)</option>
-              <option value="6">6 — AxiDraw SE A2 (594 × 420 mm)</option>
-              <option value="7">7 — AxiDraw V3 B6 (150 × 105 mm)</option>
-              <option value="8">8 — AxiDraw V3 Wide (390 × 218 mm)</option>
+              <optgroup label="Bantam Tools NextDraw" data-i18n-label="settings.plotter_model.group_nextdraw">
+                <option value="8">8 — NextDraw 8511 (300 × 218 mm)</option>
+                <option value="9">9 — NextDraw 1117 (430 × 297 mm)</option>
+                <option value="10">10 — NextDraw 2234 (864 × 594 mm)</option>
+              </optgroup>
+              <optgroup label="AxiDraw" data-i18n-label="settings.plotter_model.group_axidraw">
+                <option value="1">1 — AxiDraw V2 / V3 / SE A4 (300 × 218 mm)</option>
+                <option value="2">2 — AxiDraw V3/A3 / SE A3 / iDraw H SE A3 (430 × 297 mm)</option>
+                <option value="3">3 — AxiDraw V3 XLX (595 × 218 mm)</option>
+                <option value="4">4 — AxiDraw MiniKit (160 × 102 mm)</option>
+                <option value="5">5 — AxiDraw SE A1 (864 × 594 mm)</option>
+                <option value="6">6 — AxiDraw SE A2 (594 × 432 mm)</option>
+                <option value="7">7 — AxiDraw V3 B6 (190 × 140 mm)</option>
+              </optgroup>
             </select>
           </label>
-          <p class="muted" data-i18n="settings.plotter_model.note">Match this to your AxiDraw hardware — not your paper size.</p>
+          <p class="muted" data-i18n="settings.plotter_model.note">Match this to your plotter hardware — not your paper size. Sizes shown are carriage travel.</p>
+          <label class="field">
+            <span class="field-label" data-i18n="settings.handling.label">Handling mode</span>
+            <select id="settings-handling">
+              <option value="1" data-i18n="settings.handling.technical">1 — Technical drawing</option>
+              <option value="2" data-i18n="settings.handling.handwriting">2 — Handwriting</option>
+              <option value="3" data-i18n="settings.handling.sketching">3 — Sketching</option>
+              <option value="4" data-i18n="settings.handling.constant">4 — Constant speed</option>
+            </select>
+          </label>
+          <p class="muted" data-i18n="settings.handling.note">NextDraw motion profile. Technical drawing is the most accurate; sketching is fastest; constant speed disables acceleration for brush and ruling pens.</p>
         </div>
       </section>
 
@@ -144,17 +160,17 @@
           <p class="muted" data-i18n="settings.defaults_note">Defaults for new jobs. Per-job settings will override these defaults.</p>
           <div class="slider-stack">
             <label class="field slider">
-              <span class="field-label" data-i18n="speed.pendown_label">Pen-down speed (1–110)</span>
+              <span class="field-label" data-i18n="speed.pendown_label">Pen-down speed (1–100)</span>
               <div class="slider-row">
-                <input type="range" id="settings-speed-pendown-slider" min="1" max="110" step="1" value="25" />
-                <input type="number" id="settings-speed-pendown" min="1" max="110" step="1" value="25" />
+                <input type="range" id="settings-speed-pendown-slider" min="1" max="100" step="1" value="25" />
+                <input type="number" id="settings-speed-pendown" min="1" max="100" step="1" value="25" />
               </div>
             </label>
             <label class="field slider">
-              <span class="field-label" data-i18n="speed.penup_label">Pen-up speed (1–110)</span>
+              <span class="field-label" data-i18n="speed.penup_label">Pen-up speed (1–100)</span>
               <div class="slider-row">
-                <input type="range" id="settings-speed-penup-slider" min="1" max="110" step="1" value="75" />
-                <input type="number" id="settings-speed-penup" min="1" max="110" step="1" value="75" />
+                <input type="range" id="settings-speed-penup-slider" min="1" max="100" step="1" value="75" />
+                <input type="number" id="settings-speed-penup" min="1" max="100" step="1" value="75" />
               </div>
             </label>
             <label class="field slider">
@@ -345,17 +361,17 @@
               <div class="card-section-body">
                 <div class="slider-stack">
                   <label class="field slider">
-                    <span class="field-label" data-i18n="speed.pendown_label">Pen-down speed (1–110)</span>
+                    <span class="field-label" data-i18n="speed.pendown_label">Pen-down speed (1–100)</span>
                     <div class="slider-row">
-                      <input type="range" class="speed-pendown-slider" min="1" max="110" step="1" value="25" />
-                      <input type="number" class="speed-pendown" value="25" min="1" max="110" step="1" />
+                      <input type="range" class="speed-pendown-slider" min="1" max="100" step="1" value="25" />
+                      <input type="number" class="speed-pendown" value="25" min="1" max="100" step="1" />
                     </div>
                   </label>
                   <label class="field slider">
-                    <span class="field-label" data-i18n="speed.penup_label">Pen-up speed (1–110)</span>
+                    <span class="field-label" data-i18n="speed.penup_label">Pen-up speed (1–100)</span>
                     <div class="slider-row">
-                      <input type="range" class="speed-penup-slider" min="1" max="110" step="1" value="75" />
-                      <input type="number" class="speed-penup" value="75" min="1" max="110" step="1" />
+                      <input type="range" class="speed-penup-slider" min="1" max="100" step="1" value="75" />
+                      <input type="number" class="speed-penup" value="75" min="1" max="100" step="1" />
                     </div>
                   </label>
                   <label class="field slider">

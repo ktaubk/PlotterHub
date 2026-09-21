@@ -5,7 +5,8 @@
 #
 # Unattended installs:
 #   SUDO_PW='your-password'   — pipe into sudo -S
-#   PLOTTER_MODEL=<1-8>       — set axidraw model for this installation
+#   PLOTTER_MODEL=<1-10>      — set plotter model for this installation
+#                               (default 9 = NextDraw 1117; see README)
 #
 # If port 80 is free the service binds there; otherwise it falls back to 8080.
 
@@ -15,7 +16,18 @@ PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SERVICE_NAME="plotterhub"
 UNIT_SRC="$PROJECT_DIR/systemd/$SERVICE_NAME.service"
 UNIT_DST="/etc/systemd/system/$SERVICE_NAME.service"
-REPO_URL="https://github.com/Synendo/PlotterHub.git"
+# Where "Update now" pulls from. Derived from this checkout's `origin` so a
+# fork updates from the fork, not from upstream; SSH remotes are rewritten to
+# HTTPS because the fetch runs as the unprivileged service user, which has no
+# deploy key. Falls back to upstream when origin is missing or not a git URL.
+UPSTREAM_URL="https://github.com/Synendo/PlotterHub.git"
+REPO_URL="$(git -C "$PROJECT_DIR" remote get-url origin 2>/dev/null || true)"
+case "$REPO_URL" in
+    git@*:*)      REPO_URL="${REPO_URL#git@}"; REPO_URL="https://${REPO_URL/://}" ;;
+    ssh://git@*)  REPO_URL="https://${REPO_URL#ssh://git@}" ;;
+    https://*|http://*) ;;
+    *)            REPO_URL="$UPSTREAM_URL" ;;
+esac
 # The service runs as a specific non-root user. Normally that's whoever invokes
 # this script; the self-update path runs the script as root inside a transient
 # unit and passes the user in via SERVICE_USER (falling back to SUDO_USER).

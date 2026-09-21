@@ -2,15 +2,19 @@
   <img src="static/plotter_hub_logo.svg" alt="Plotter Hub" width="360">
 </p>
 
-A self-hosted plot server for the iDraw H SE A3 and AxiDraw-class pen plotters. Submit SVGs over the network and the Pi drives the plotter locally via the official AxiDraw Python API, so your workstation doesn't need to stay connected for the duration of the plot.
+A self-hosted plot server for Bantam Tools NextDraw and AxiDraw-class pen plotters. Submit SVGs over the network and the Pi drives the plotter locally via the official NextDraw Python API, so your workstation doesn't need to stay connected for the duration of the plot.
 
 Open `http://plotterhub.local` (or whatever your Pi's hostname is) and you get a drag-and-drop UI with layer-by-layer plotting, pen-change pauses, paper-size presets, and a live pen-position cursor.
 
+## About this fork
+
+This is a fork of [Synendo/PlotterHub](https://github.com/Synendo/PlotterHub) ported from the AxiDraw Python API to the [Bantam Tools NextDraw Python API](https://bantam.tools/nd_py/). NextDraw is the successor to the AxiDraw, and its software drives both — so this fork still runs every AxiDraw model, plus the three NextDraw ones. See [Migrating from the AxiDraw version](#migrating-from-the-axidraw-version) if you're coming from upstream.
+
 ## Background
 
-I didn't like that my iDraw H SE A3 plotter had to stay connected to my laptop to run a plot. Luckily it's compatible with the great [AxiDraw software](https://axidraw.com/), which can be installed on a Raspberry Pi — this repo is just a UI around [AxiDraw's Python library](https://axidraw.com/doc/py_api/).
+I didn't like that my plotter had to stay connected to my laptop to run a plot. Luckily the [NextDraw software](https://bantam.tools/nd_py/) can be installed on a Raspberry Pi — this repo is just a UI around its Python library.
 
-I also had a look at [saxi](https://github.com/nornagon/saxi), but it didn't support the physical pause button on my iDraw. AxiDraw does recognize button presses, so Plotter Hub supports it: press the button once to pause, press it a second time to resume the plot. The same button also continues to the next layer when the plot is paused for a pen change.
+I also had a look at [saxi](https://github.com/nornagon/saxi), but it didn't support the physical pause button. NextDraw does recognize button presses, so Plotter Hub supports it: press the button once to pause, press it a second time to resume the plot. The same button also continues to the next layer when the plot is paused for a pen change.
 
 **Disclaimer:** this code was completely created by [Claude Code](https://claude.com/claude-code) (Claude Opus 4.7-4.8, 1M-context).
 
@@ -49,7 +53,7 @@ I also had a look at [saxi](https://github.com/nornagon/saxi), but it didn't sup
 ## Requirements
 
 - Raspberry Pi Zero 2 W, 3B+, or newer running Raspberry Pi OS Trixie (Debian 13) or Bookworm (Debian 12)
-- An iDraw H SE A3, AxiDraw, or compatible EBB-based plotter on USB
+- A Bantam Tools NextDraw (8511 / 1117 / 2234), or an AxiDraw / iDraw H SE running EBB firmware 3.0.1 or newer, on USB
 
 Tested on a Raspberry Pi 3 Model B and a Raspberry Pi Zero 2 W, both running Raspberry Pi OS Lite (64-bit) — a port of Debian Trixie with no desktop environment (released 2026-04-21).
 
@@ -74,7 +78,7 @@ Tested on a Raspberry Pi 3 Model B and a Raspberry Pi Zero 2 W, both running Ras
 - [`fastapi`](https://fastapi.tiangolo.com/)
 - [`uvicorn[standard]`](https://www.uvicorn.org/)
 - [`python-multipart`](https://github.com/Kludex/python-multipart)
-- [`pyaxidraw`](https://axidraw.com/doc/py_api/) (from the Evil Mad Scientist [AxiDraw API zip](https://cdn.evilmadscientist.com/dl/ad/public/AxiDraw_API.zip))
+- [`nextdraw`](https://bantam.tools/nd_py/) (from the Bantam Tools [NextDraw API zip](https://software-download.bantamtools.com/nd/api/nextdraw_api.zip))
 - [`vpype`](https://vpype.readthedocs.io/) — invoked as a subprocess for optional pre-plot optimization
 
 **System files** (written / overwritten on every run):
@@ -125,11 +129,48 @@ When the script finishes it prints the URL to open in your browser.
 # Unattended install (pipes sudo password):
 SUDO_PW='your-password' ./install.sh
 
-# Set a different plotter model at install (default is 2, AxiDraw SE/A3):
-PLOTTER_MODEL=1 ./install.sh
+# Set a different plotter model at install (default is 9, NextDraw 1117):
+PLOTTER_MODEL=8 ./install.sh
 ```
 
-After install, the plotter model can also be changed from the UI (gear icon → Settings) and is persisted to `config.json`.
+| `PLOTTER_MODEL` | Plotter | Travel |
+|---|---|---|
+| 1 | AxiDraw V2 / V3 / SE A4 | 300 × 218 mm |
+| 2 | AxiDraw V3/A3 / SE A3 / iDraw H SE A3 | 430 × 297 mm |
+| 3 | AxiDraw V3 XLX | 595 × 218 mm |
+| 4 | AxiDraw MiniKit | 160 × 102 mm |
+| 5 | AxiDraw SE A1 | 864 × 594 mm |
+| 6 | AxiDraw SE A2 | 594 × 432 mm |
+| 7 | AxiDraw V3 B6 | 190 × 140 mm |
+| 8 | NextDraw 8511 | 300 × 218 mm |
+| 9 | NextDraw 1117 *(default)* | 430 × 297 mm |
+| 10 | NextDraw 2234 | 864 × 594 mm |
+
+Sizes are carriage travel, not paper size. After install, the plotter model can also be changed from the UI (gear icon → Settings) and is persisted to `config.json`.
+
+### Handling mode
+
+NextDraw replaces AxiDraw's `const_speed` flag with four motion profiles, selectable under **Settings → Plotter Model → Handling mode**:
+
+| Mode | Use for |
+|---|---|
+| 1 — Technical drawing *(default)* | Highest accuracy; high-resolution stepping |
+| 2 — Handwriting | Loose, fast curves |
+| 3 — Sketching | Fastest; looser curve tolerance |
+| 4 — Constant speed | No acceleration — brush pens, ruling pens, dip pens |
+
+The handling mode sets the speed ceiling that the 1–100 pen-down / pen-up sliders scale against, so the same slider value plots at different absolute speeds in different modes.
+
+`config.json` also carries a `penlift` key that the UI doesn't expose: leave it at `1` unless you've fitted the brushless pen-lift upgrade to an AxiDraw, in which case set it to `3`.
+
+### Migrating from the AxiDraw version
+
+If you're moving an existing Plotter Hub install to this fork, note:
+
+- **Model 8 changed meaning.** It was *AxiDraw V3 Wide* upstream; in NextDraw's numbering it's the *NextDraw 8511*. If your `config.json` says `8`, re-pick your model in Settings.
+- **Speeds now cap at 100, not 110.** NextDraw clamps `speed_pendown` / `speed_penup` to 1–100. A `config.json` whose saved defaults are above 100 now fails validation and silently falls back to 25 / 75 — re-set your speed defaults in Settings after upgrading.
+- **AxiDraw hardware needs EBB firmware 3.0.1+.** The NextDraw software talks to the board over the newer EBB3 protocol and won't connect to older firmware.
+- Delete `venv/` before re-running `install.sh` so the old `pyaxidraw` package doesn't linger alongside `nextdraw`.
 
 ### Network and access
 
@@ -172,7 +213,7 @@ Before upgrading (either way), it's cleanest to wait until the queue is idle (or
 | Layer | What it is |
 |---|---|
 | Backend | Python 3.13, FastAPI, Uvicorn (uvloop + httptools) |
-| Plotter control | `pyaxidraw` Python API (not the `axicli` CLI) |
+| Plotter control | `nextdraw` Python API (not the `nextdraw` command-line tool) |
 | Optimization | `vpype` CLI invoked as a subprocess (cancel-killable) for optional pre-plot path optimization; per-job cache reused across re-plots |
 | Frontend | Vanilla HTML + CSS + JavaScript, no build step |
 | Transport | HTTP + WebSocket |
@@ -188,7 +229,7 @@ app/
                     # /cancel, /settings, /ws/state
   plot_worker.py    # plot + resume + homing worker thread,
                     # button-poll and position-poll threads, preview cache
-  preview_runner.py # subprocess entry point for pyaxidraw preview mode
+  preview_runner.py # subprocess entry point for NextDraw preview mode
   svg_optimize.py   # vpype subprocess wrapper for optional pre-plot optimization
   svg_utils.py      # Inkscape-layer parsing, filter, paper transform
   state.py          # in-memory state + WebSocket broadcast
@@ -219,10 +260,11 @@ Never restart the service mid-plot — Python can't kill a thread, so a SIGTERM 
 
 ## Known limitations
 
-- No live progress while `plot_run` is in its ~18s pre-motion setup phase (EBB version query, servo init, path planning) — pyaxidraw doesn't expose progress events until motion starts.
+- No live progress while `plot_run` is in its pre-motion setup phase (EBB version query, servo init, path planning, and on NextDraw models the automatic homing sweep) — the NextDraw API doesn't expose progress events until motion starts.
+- Cancelling a plot returns the carriage home with `utility` / `walk_home` rather than AxiDraw's old `res_home` mode, which NextDraw removed. The pen is raised first, so a cancel never drags ink across the page.
 
 ## License
 
-Released under the MIT License — see [LICENSE](LICENSE). Built around the AxiDraw Python API from Evil Mad Scientist (GPL-2.0), which is installed as a runtime dependency rather than bundled; the assembled system is therefore subject to GPL-2.0 terms. Optional path optimization uses [vpype](https://vpype.readthedocs.io/) (MIT, © Antoine Beyeler & Contributors), invoked as a separate subprocess and likewise installed as a runtime dependency.
+Released under the MIT License — see [LICENSE](LICENSE). Built around the NextDraw Python API from Bantam Tools (GPL-2.0), which is installed as a runtime dependency rather than bundled; the assembled system is therefore subject to GPL-2.0 terms. Optional path optimization uses [vpype](https://vpype.readthedocs.io/) (MIT, © Antoine Beyeler & Contributors), invoked as a separate subprocess and likewise installed as a runtime dependency.
 
-Plotter Hub is an independent project and is not affiliated with, endorsed by, or supported by Evil Mad Scientist Laboratories. AxiDraw is a trademark of Evil Mad Scientist Laboratories.
+Plotter Hub is an independent project and is not affiliated with, endorsed by, or supported by Bantam Tools. NextDraw and AxiDraw are trademarks of Bantam Tools.

@@ -189,12 +189,14 @@ class MoveRequest(BaseModel):
 
 
 class SettingsUpdate(BaseModel):
-    plotter_model: int | None = Field(None, ge=1, le=8)
+    plotter_model: int | None = Field(None, ge=1, le=10)
+    handling: int | None = Field(None, ge=1, le=4)
+    penlift: Literal[1, 3] | None = None
     pause_between_layers_default: bool | None = None
     pause_after_job_default: bool | None = None
     delete_on_complete_default: bool | None = None
-    speed_pendown_default: int | None = Field(None, ge=1, le=110)
-    speed_penup_default: int | None = Field(None, ge=1, le=110)
+    speed_pendown_default: int | None = Field(None, ge=1, le=100)
+    speed_penup_default: int | None = Field(None, ge=1, le=100)
     acceleration_default: int | None = Field(None, ge=1, le=100)
     optimize_svg_default: bool | None = None
     optimize_svg_tolerance_default_mm: float | None = Field(None, ge=0.01, le=10.0)
@@ -210,8 +212,8 @@ class SettingsUpdate(BaseModel):
 # overshoot or stale client default shouldn't break the request, the user
 # clearly wanted the value at the limit.
 _CLAMP_RANGES: dict[str, tuple[float, float]] = {
-    "speed_pendown": (1, 110),
-    "speed_penup": (1, 110),
+    "speed_pendown": (1, 100),
+    "speed_penup": (1, 100),
     "acceleration": (1, 100),
     "transform_scale": (0.01, 5.0),
     "transform_rotation_deg": (0.0, 360.0),

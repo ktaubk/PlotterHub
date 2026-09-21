@@ -23,7 +23,8 @@ function statusLabel(key) {
 }
 
 let appSettings = {
-  plotter_model: 2,
+  plotter_model: 9,
+  handling: 1,
   pause_between_layers_default: true,
   pause_after_job_default: true,
   delete_on_complete_default: false,
@@ -374,7 +375,7 @@ function createCardForJob(job) {
   // phase (covers the Enter-key path that may not blur). After clamping,
   // dispatch input + change so the paired slider re-syncs and queueCardUpdate
   // sees the corrected value. Clamping during typing would mangle
-  // partially-entered numbers like "1100" → "110", so we only do it on commit.
+  // partially-entered numbers like "1000" → "100", so we only do it on commit.
   const clampOnLeave = (e) => {
     const el = e.target;
     if (el instanceof HTMLInputElement && el.type === "number") {
@@ -858,7 +859,7 @@ function resetParameters(card) {
 
 // Clamp a number input's value to its own min/max attributes. type="number"
 // only enforces the bounds via form validation, so a user can still type 200
-// into a 1–110 field — this snaps it back on blur/enter. Returns true if the
+// into a 1–100 field — this snaps it back on blur/enter. Returns true if the
 // value was changed.
 function clampNumberInput(el) {
   if (!el || el.type !== "number" || el.value === "") return false;
@@ -1550,6 +1551,7 @@ function layerSwatch(type, penHex, pageHex) {
 const settingsBtn = $("settings-btn");
 const settingsModal = $("settings-modal");
 const settingsPlotterModel = $("settings-plotter-model");
+const settingsHandling = $("settings-handling");
 const settingsApiKey = $("settings-api-key");
 const settingsApiKeyCopy = $("settings-api-key-copy");
 const settingsPauseBetweenLayers = $("settings-pause-between-layers");
@@ -1603,6 +1605,7 @@ function applyAppSettings(data) {
   const prevUnit = effectiveDisplayUnit();
   appSettings = {
     plotter_model: data.plotter_model ?? appSettings.plotter_model,
+    handling: data.handling ?? appSettings.handling,
     pause_between_layers_default: data.pause_between_layers_default ?? appSettings.pause_between_layers_default,
     pause_after_job_default: data.pause_after_job_default ?? appSettings.pause_after_job_default,
     delete_on_complete_default: data.delete_on_complete_default ?? appSettings.delete_on_complete_default,
@@ -1641,7 +1644,8 @@ async function openSettings() {
     const res = await fetch("/settings");
     const data = await res.json();
     applyAppSettings(data);
-    settingsPlotterModel.value = String(data.plotter_model || 2);
+    settingsPlotterModel.value = String(data.plotter_model || 9);
+    settingsHandling.value = String(data.handling || 1);
     settingsApiKey.value = data.api_key || "";
     settingsPauseBetweenLayers.checked = data.pause_between_layers_default ?? true;
     settingsPauseAfterJob.checked = data.pause_after_job_default ?? true;
@@ -1672,6 +1676,7 @@ async function saveSettings() {
     const tol = parseFloat(settingsOptimizeTolerance.value);
     const body = {
       plotter_model: parseInt(settingsPlotterModel.value),
+      handling: parseInt(settingsHandling.value),
       pause_between_layers_default: settingsPauseBetweenLayers.checked,
       pause_after_job_default: settingsPauseAfterJob.checked,
       delete_on_complete_default: settingsDeleteOnComplete.checked,
@@ -1855,7 +1860,7 @@ function updatePenCursor(msg) {
   const job = serverState.queue.find((j) => j.job_id === serverState.active_id);
   if (!cursor || !job) return;
   const w = job.paper_width_mm, h = job.paper_height_mm;
-  // AxiDraw's auto_rotate (on by default) rotates portrait documents
+  // NextDraw's auto_rotate (on by default) rotates portrait documents
   // (height > width) 90° CCW onto the landscape bed, so the reported physical
   // pen position arrives in that rotated frame: phys_x runs along the document
   // height and phys_y runs (inverted) along the document width. Map it back

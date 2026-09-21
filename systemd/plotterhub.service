@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 Type=simple
-Environment=PLOTTER_MODEL=2
+Environment=PLOTTER_MODEL=9
 ExecStart=__WORKDIR__/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 80
 WorkingDirectory=__WORKDIR__
 User=__SERVICE_USER__

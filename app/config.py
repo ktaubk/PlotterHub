@@ -43,13 +43,20 @@ class _Setting:
 
 
 _SETTINGS: list[_Setting] = [
-    _Setting("plotter_model", int, int(os.environ.get("PLOTTER_MODEL", "2")),
-             lambda v: 1 <= v <= 8),
+    _Setting("plotter_model", int, int(os.environ.get("PLOTTER_MODEL", "9")),
+             lambda v: 1 <= v <= 10),
+    # NextDraw handling mode: 1 technical drawing, 2 handwriting, 3 sketching,
+    # 4 constant speed. Sets the motion profile (resolution, jerk, speed caps)
+    # that the 1-100 speed sliders are then scaled against.
+    _Setting("handling", int, 1, lambda v: 1 <= v <= 4),
+    # Pen-lift motor: 1 = model default (brushless on NextDraw, standard servo
+    # on AxiDraw), 3 = brushless upgrade fitted to an AxiDraw.
+    _Setting("penlift", int, 1, lambda v: v in (1, 3)),
     _Setting("pause_between_layers_default", bool, True),
     _Setting("pause_after_job_default", bool, True),
     _Setting("delete_on_complete_default", bool, False),
-    _Setting("speed_pendown_default", int, 25, lambda v: 1 <= v <= 110),
-    _Setting("speed_penup_default", int, 75, lambda v: 1 <= v <= 110),
+    _Setting("speed_pendown_default", int, 25, lambda v: 1 <= v <= 100),
+    _Setting("speed_penup_default", int, 75, lambda v: 1 <= v <= 100),
     _Setting("acceleration_default", int, 75, lambda v: 1 <= v <= 100),
     _Setting("optimize_svg_default", bool, True),
     _Setting("optimize_svg_tolerance_default_mm", float, 0.10,

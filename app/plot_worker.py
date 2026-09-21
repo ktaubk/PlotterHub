@@ -8,8 +8,8 @@ import time
 from collections import OrderedDict
 from pathlib import Path
 
-from plotink import ebb_motion, ebb_serial
-from pyaxidraw import axidraw
+from nextdraw import NextDraw
+from plotink import ebb3_serial
 
 from . import config, optimize_queue, state, svg_optimize, svg_utils
 
@@ -24,6 +24,8 @@ _PAUSED_CODES = {STOPPED_PROGRAMMATIC_PAUSE, STOPPED_BUTTON_PAUSE, STOPPED_SOFTW
 _STOPPED_MESSAGES = {
     101: "Could not connect to the plotter. Check that it is powered on and plugged in.",
     104: "Lost connection to the plotter during the plot.",
+    105: "The plotter lost power during the plot. Check the power supply, then re-home and re-plot.",
+    106: "Homing failed. Check that the carriage can move freely, then try again.",
 }
 
 
@@ -33,7 +35,7 @@ def _format_stopped(code: int) -> str:
 
 # Shared control state for the worker thread -------------------------------
 
-_current_ad: axidraw.AxiDraw | None = None
+_current_ad: NextDraw | None = None
 _preview_proc: subprocess.Popen | None = None
 _cancel_flag = threading.Event()           # cancel the active job
 _continue_event = threading.Event()        # continue: pen change within a job, or next job
@@ -51,7 +53,7 @@ _POSITION_POLL_INTERVAL_S = 0.1
 
 _preview_cache: "OrderedDict[str, dict]" = OrderedDict()
 _PREVIEW_CACHE_MAX = 20
-# Preview is CPU-heavy (pyaxidraw simulation). The plot worker AND the plan
+# Preview is CPU-heavy (NextDraw simulation). The plot worker AND the plan
 # queue both call _run_preview; this lock guarantees only one preview
 # subprocess at a time so they don't fight over cores on the Pi.
 _preview_lock = threading.Lock()
@@ -89,6 +91,8 @@ def _preview_cache_key(svg_path: Path, layer_indices: list[int], job: dict) -> s
         "tx": job.get("transform_offset_x_mm", 0.0),
         "ty": job.get("transform_offset_y_mm", 0.0),
         "model": config.PLOTTER_MODEL,
+        "handling": config.HANDLING,
+        "penlift": config.PENLIFT,
         "sd": job["speed_pendown"],
         "su": job["speed_penup"],
         "acc": job["acceleration"],
@@ -158,36 +162,45 @@ def _stop_position_poll() -> None:
 
 _BUTTON_ACTIVE_STATUSES = ("paused", "awaiting_pen_change")
 
+# Bit 5 of the EBB3 `QG` status byte: "button has been pressed since last read".
+_QG_BUTTON_BIT = 32
+
 
 def _button_poll_loop(job_id: str) -> None:
-    port = None
+    """Watch the machine's physical button while a job is paused.
+
+    NextDraw reads the button out of the EBB3 ``QG`` status byte (bit 5)
+    rather than the legacy ``QB`` query, so this opens its own EBB3 session.
+    Only runs between plot stages, when the driver holds no USB connection
+    of its own.
+    """
+    ebb = ebb3_serial.EBB3()
     pressed_status: str | None = None
     try:
-        port = ebb_serial.openPort()
-        if port is None:
+        if not ebb.connect(caller="PlotterHub"):
             return
-        try:
-            ebb_motion.QueryPRGButton(port, verbose=False)
-        except Exception:
+        # QG clears the button flag as it reads it — this first query throws
+        # away any press that was latched before we started watching.
+        if ebb.query_statusbyte() is None:
             return
         while not _stop_polling.is_set():
             job = state.get_job(job_id)
             if job is None or job["status"] not in _BUTTON_ACTIVE_STATUSES:
                 return
-            try:
-                response = ebb_motion.QueryPRGButton(port, verbose=False)
-            except Exception:
+            status_byte = ebb.query_statusbyte()
+            if status_byte is None or ebb.err is not None:
                 break
-            if response and str(response).strip().startswith("1"):
+            if status_byte & _QG_BUTTON_BIT:
                 pressed_status = job["status"]
                 break
             _stop_polling.wait(_BUTTON_POLL_INTERVAL_S)
+    except Exception:
+        log.exception("button poll failed")
     finally:
-        if port is not None:
-            try:
-                ebb_serial.closePort(port)
-            except Exception:
-                pass
+        try:
+            ebb.disconnect()
+        except Exception:
+            pass
 
     if pressed_status is None:
         return
@@ -230,16 +243,23 @@ def _stop_button_poll() -> None:
     _poll_thread = None
 
 
-# pyaxidraw wrappers -------------------------------------------------------
+# NextDraw wrappers --------------------------------------------------------
+
+def _apply_machine_options(ad: NextDraw) -> None:
+    """Machine-level options that apply to every call, plot or utility."""
+    ad.options.model = config.PLOTTER_MODEL
+    ad.options.handling = config.HANDLING
+    ad.options.penlift = config.PENLIFT
+
 
 def _run_stage(current_svg: Path, mode: str, job: dict,
                stage: dict | None = None) -> tuple[int, str]:
     global _current_ad
-    ad = axidraw.AxiDraw()
+    ad = NextDraw()
     try:
         ad.plot_setup(str(current_svg))
         ad.options.mode = mode
-        ad.options.model = config.PLOTTER_MODEL
+        _apply_machine_options(ad)
         # Per-stage speeds (a layer override resolved in _run_job) fall back to
         # the job's document/system speeds — as does a stage-less call such as
         # the calibration side-plot.
@@ -260,6 +280,32 @@ def _run_stage(current_svg: Path, mode: str, job: dict,
         _current_ad = None
 
 
+def _walk_home() -> None:
+    """Return the carriage to the home corner, pen up.
+
+    Replaces AxiDraw's ``res_home`` mode, which NextDraw dropped: NextDraw
+    no longer keeps the carriage position in the SVG, so homing is a machine
+    operation rather than something driven from the resume file. The pen is
+    raised first — a plot that stopped on a power-loss or connection error
+    can leave the pen down, and ``walk_home`` moves with the pen wherever it
+    finds it. On NextDraw models this also triggers the automatic homing
+    sequence if the machine has lost its reference.
+    """
+    for cmd in ("raise_pen", "walk_home"):
+        ad = NextDraw()
+        try:
+            ad.plot_setup()
+            ad.options.mode = "utility"
+            ad.options.utility_cmd = cmd
+            _apply_machine_options(ad)
+            ad.plot_run()
+        finally:
+            try:
+                ad.disconnect()
+            except Exception:
+                pass
+
+
 def _run_preview(preview_svg_path: Path, job: dict,
                  cancel_event: threading.Event | None = None) -> dict | None:
     global _preview_proc
@@ -272,6 +318,8 @@ def _run_preview(preview_svg_path: Path, job: dict,
         str(job["speed_pendown"]),
         str(job["speed_penup"]),
         str(job["acceleration"]),
+        str(config.HANDLING),
+        str(config.PENLIFT),
     ]
     with _preview_lock:
         proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -469,8 +517,8 @@ def cancel_active() -> None:
         _cancel_flag.set()
         pause_active()
     elif st == "plotting_calibration":
-        # Same shape as plotting: stop the AxiDraw mid-stroke; the calibration
-        # phase sees _cancel_flag and homes via res_home before bailing.
+        # Same shape as plotting: stop the plotter mid-stroke; the calibration
+        # phase sees _cancel_flag and homes before bailing.
         _cancel_flag.set()
         pause_active()
     elif st == "planning":
@@ -494,7 +542,7 @@ def cancel_active() -> None:
         _cancel_flag.set()
         # The pause-wait loop polls the job's status (not _cancel_flag), so
         # flipping to 'homing' is what actually unblocks it. The loop then
-        # runs res_home with the saved resume_path and marks the job cancelled.
+        # walks the carriage home and marks the job cancelled.
         state.update_job(job["job_id"], status="homing")
     else:
         raise RuntimeError(f"Cannot cancel job in status '{st}'")
@@ -661,7 +709,7 @@ def _run_calibration_phase(job_id: str, svg_path: Path) -> None:
     awaiting_pen_change pause: no resume tracking, no stage advancement.
 
     Honours _cancel_flag — if the user hits cancel during the calibration
-    plot, the AxiDraw is paused, we home with res_home, and return. The
+    plot, the plotter is paused, we walk the carriage home, and return. The
     caller (the pause-wait loop in _run_staged_loop) then sees _cancel_flag
     and finalises the main job as cancelled.
     """
@@ -682,7 +730,6 @@ def _run_calibration_phase(job_id: str, svg_path: Path) -> None:
     filt = svg_path.with_name(f"{job['svg_id']}.cal.filt.svg")
     cal_svg = svg_path.with_name(f"{job['svg_id']}.cal.svg")
 
-    output_svg = ""
     stopped = STOPPED_COMPLETED
     try:
         svg_utils.filter_to_layers(svg_path, cal_indices, filt)
@@ -697,7 +744,7 @@ def _run_calibration_phase(job_id: str, svg_path: Path) -> None:
             transform_offset_x_mm=job.get("transform_offset_x_mm", 0.0),
             transform_offset_y_mm=job.get("transform_offset_y_mm", 0.0),
         )
-        stopped, output_svg = _run_stage(cal_svg, "plot", job)
+        stopped, _ = _run_stage(cal_svg, "plot", job)
     except IndexError:
         log.warning("plotink IndexError during calibration plot")
         return
@@ -708,16 +755,10 @@ def _run_calibration_phase(job_id: str, svg_path: Path) -> None:
     if stopped in _PAUSED_CODES and _cancel_flag.is_set():
         # User cancelled mid-calibration. Home from where we stopped, then
         # leave _cancel_flag set so the caller cancels the main job.
-        resume_path = svg_path.with_name(f"{job['svg_id']}.cal.resume.svg")
         try:
-            resume_path.write_text(output_svg, encoding="utf-8")
-            _run_stage(resume_path, "res_home", job)
+            _walk_home()
         except Exception:
-            log.exception("calibration cancel: res_home failed")
-        try:
-            resume_path.unlink(missing_ok=True)
-        except OSError:
-            pass
+            log.exception("calibration cancel: homing failed")
         return
 
     if stopped != STOPPED_COMPLETED:
@@ -894,9 +935,9 @@ def _run_staged_loop(job_id: str, svg_path: Path, first_mode: str) -> None:
                 _cancel_flag.clear()
                 state.update_job(job_id, status="homing", resume_path=str(resume_path))
                 try:
-                    _run_stage(resume_path, "res_home", job, stage)
+                    _walk_home()
                 except Exception:
-                    log.exception("res_home failed")
+                    log.exception("homing after cancel failed")
                 state.update_job(job_id, status="cancelled", resume_path=None)
                 return
             state.update_job(job_id, status="paused", resume_path=str(resume_path))
@@ -919,9 +960,9 @@ def _run_staged_loop(job_id: str, svg_path: Path, first_mode: str) -> None:
                         return
                     # homing
                     try:
-                        _run_stage(Path(current["resume_path"]), "res_home", job, stage)
+                        _walk_home()
                     except Exception:
-                        log.exception("res_home failed")
+                        log.exception("homing after cancel failed")
                     state.update_job(job_id, status="cancelled", resume_path=None)
                     return
                 time.sleep(0.1)
@@ -981,4 +1022,4 @@ def _run_staged_loop(job_id: str, svg_path: Path, first_mode: str) -> None:
 # Cancel-aware cancel from the 'homing' status:
 # We piggyback on the _cancel_flag path above. If user clicks cancel while
 # paused, the cancel branch inside the pause-wait converts the paused job to
-# homing, runs res_home, then cancelled. The worker never blocks uninterruptibly.
+# homing, walks it home, then cancelled. The worker never blocks uninterruptibly.

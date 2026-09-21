@@ -86,8 +86,8 @@ All fields are optional. Unspecified booleans, speeds, and `selected` flags fall
 
   // Plotter speed — omit any field to inherit the server default.
   // Out-of-range values are silently clamped to the bounds.
-  "speed_pendown": 30,                // 1–110
-  "speed_penup":   80,                // 1–110
+  "speed_pendown": 30,                // 1–100
+  "speed_penup":   80,                // 1–100
   "acceleration":  50,                // 1–100
 
   // SVG optimization (vpype). Omit any field to inherit the server default.
@@ -106,8 +106,8 @@ All fields are optional. Unspecified booleans, speeds, and `selected` flags fall
       "name": "string",               // Optional — overrides the embedded `inkscape:label`.
       "type": "pattern" | "text" | "svg" | "calibration" | "image",  // Optional — drives a small icon in the UI. Other values are accepted and fall back to a generic icon.
       "selected": false,              // Optional, default true. `false` excludes the layer from the plot.
-      "speed_pendown": 25,            // Optional 1–110 — pen-down speed for this layer only.
-      "speed_penup": 75,              // Optional 1–110 — pen-up speed for this layer only.
+      "speed_pendown": 25,            // Optional 1–100 — pen-down speed for this layer only.
+      "speed_penup": 75,              // Optional 1–100 — pen-up speed for this layer only.
       "acceleration": 75,             // Optional 1–100 — acceleration for this layer only.
       "pen": {                        // Optional — the pen loaded for this layer.
         "name": "Uni Posca PC-5M White"  // Display only; shown after the layer name.
@@ -284,7 +284,7 @@ Editable fields:
 | `transform_scale` | number | 0.01–5.0 |
 | `transform_rotation_deg` | number | 0–360 |
 | `transform_offset_x_mm`, `transform_offset_y_mm` | number | |
-| `speed_pendown`, `speed_penup` | int | 1–110 |
+| `speed_pendown`, `speed_penup` | int | 1–100 |
 | `acceleration` | int | 1–100 |
 | `pause_between_layers`, `pause_after_job`, `delete_on_complete` | bool | |
 | `optimize_svg` | bool | Run the vpype optimization pipeline before planning. |
@@ -358,12 +358,14 @@ Returns the current snapshot. The `api_key` is never echoed back — clients alr
 
 ```jsonc
 {
-  "plotter_model": 2,                           // 1–8 (see install.sh / Settings UI for the table)
+  "plotter_model": 9,                           // 1–10 (see README for the model table)
+  "handling": 1,                                // 1–4 NextDraw motion profile: technical / handwriting / sketching / constant speed
+  "penlift": 1,                                 // 1 = model default, 3 = brushless upgrade on an AxiDraw
   "pause_between_layers_default": true,
   "pause_after_job_default": true,
   "delete_on_complete_default": false,
-  "speed_pendown_default": 25,                  // 1–110
-  "speed_penup_default": 75,                    // 1–110
+  "speed_pendown_default": 25,                  // 1–100
+  "speed_penup_default": 75,                    // 1–100
   "acceleration_default": 75,                   // 1–100
   "optimize_svg_default": true,                 // Run vpype before plotting on new jobs
   "optimize_svg_tolerance_default_mm": 0.10,    // 0.01–10.0
@@ -383,12 +385,14 @@ Body is sparse JSON — only the fields you send are applied. Returns the new sn
 
 | Field | Range / Type |
 |---|---|
-| `plotter_model` | int 1–8 |
+| `plotter_model` | int 1–10 |
+| `handling` | int 1–4 — NextDraw motion profile |
+| `penlift` | int, `1` or `3` |
 | `pause_between_layers_default` | bool |
 | `pause_after_job_default` | bool |
 | `delete_on_complete_default` | bool |
-| `speed_pendown_default` | int 1–110 |
-| `speed_penup_default` | int 1–110 |
+| `speed_pendown_default` | int 1–100 |
+| `speed_penup_default` | int 1–100 |
 | `acceleration_default` | int 1–100 |
 | `optimize_svg_default` | bool |
 | `optimize_svg_tolerance_default_mm` | float 0.01–10.0 |

@@ -110,6 +110,7 @@
   //   data-i18n-title      → title attribute
   //   data-i18n-aria-label → aria-label attribute
   //   data-i18n-placeholder→ placeholder attribute
+  //   data-i18n-label      → label attribute (e.g. <optgroup>)
   function applyStatic(root) {
     root.querySelectorAll("[data-i18n]").forEach((el) => {
       const s = raw(el.getAttribute("data-i18n"));

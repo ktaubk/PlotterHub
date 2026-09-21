@@ -1,5 +1,5 @@
 fastapi
 uvicorn[standard]
 python-multipart
-https://cdn.evilmadscientist.com/dl/ad/public/AxiDraw_API.zip
+https://software-download.bantamtools.com/nd/api/nextdraw_api.zip
 vpype
