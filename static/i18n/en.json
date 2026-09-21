@@ -116,7 +116,7 @@
   "upload.processing": "Processing {name}…",
   "upload.not_svg": "{name} is not an SVG file.",
   "upload.files_skipped": "{count} files were skipped — only .svg files are accepted.",
-  "upload.no_layers": "This SVG doesn't contain any Inkscape layers. Open it in Inkscape, add at least one layer, and export again.",
+  "upload.empty_svg": "This SVG has nothing to plot — it contains no paths or shapes.",
   "upload.failed": "Upload failed: {message}",
 
   "queue.empty": "Drop an SVG above to get started.",
@@ -151,6 +151,8 @@
   "plotinfo.pen_lifts": "Pen lifts",
 
   "card.layers": "Layers",
+
+  "layers.whole_document": "Whole document",
   "card.stages": "Stages",
   "card.page": "Page",
   "card.paper_size": "Paper Size",

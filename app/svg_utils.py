@@ -10,6 +10,15 @@ NS = {"svg": SVG_NS, "inkscape": INKSCAPE_NS}
 LAYER_TAG = f"{{{SVG_NS}}}g"
 GROUPMODE_ATTR = f"{{{INKSCAPE_NS}}}groupmode"
 LABEL_ATTR = f"{{{INKSCAPE_NS}}}label"
+DEFS_TAG = f"{{{SVG_NS}}}defs"
+
+# Elements that put ink on the page. Used to decide whether a file with no
+# Inkscape layers is still worth plotting as a single implicit layer.
+SHAPE_TAGS = frozenset(
+    f"{{{SVG_NS}}}{t}" for t in
+    ("path", "rect", "circle", "ellipse", "line", "polyline", "polygon",
+     "text", "use", "image")
+)
 
 
 def parse_dim_to_mm(s: str) -> float | None:
@@ -36,7 +45,31 @@ def _top_level_layers(root):
     return [g for g in root if g.tag == LAYER_TAG and g.get(GROUPMODE_ATTR) == "layer"]
 
 
+def has_plottable_content(el) -> bool:
+    """True if ``el`` contains any drawing element outside ``<defs>``.
+
+    ``<defs>`` is skipped because its contents are templates — they only reach
+    the page through a ``<use>``, which is itself a shape tag and counts.
+    """
+    for child in el:
+        if child.tag == DEFS_TAG:
+            continue
+        if child.tag in SHAPE_TAGS or has_plottable_content(child):
+            return True
+    return False
+
+
 def parse_layers(svg_path: Path) -> dict:
+    """Describe an SVG's plottable layers plus its page dimensions.
+
+    Files that carry top-level Inkscape layers get one entry each. Anything
+    else that still has drawable content — a plain SVG, an Illustrator or
+    Figma export, Inkscape layers buried inside a wrapper group — gets a
+    single *implicit* layer standing for the whole document, flagged so the
+    UI can label it. ``filter_to_layers`` is already a no-op on such a file
+    (it only removes top-level layers it wasn't asked to keep), so the
+    implicit layer plots the document exactly as it arrived.
+    """
     tree = etree.parse(str(svg_path))
     root = tree.getroot()
     layers = []
@@ -47,8 +80,12 @@ def parse_layers(svg_path: Path) -> dict:
                 "index": i,
                 "label": label,
                 "addressable": bool(label) and label[0].isdigit(),
+                "implicit": False,
             }
         )
+    if not layers and has_plottable_content(root):
+        layers.append({"index": 0, "label": "", "addressable": False,
+                       "implicit": True})
     return {
         "layers": layers,
         "width": root.get("width", ""),
@@ -89,7 +126,7 @@ def transform_to_paper(
     it to fit, and applies the user's scale/rotation/offset around the content center.
 
     The output SVG uses mm as its user-unit coordinate space (viewBox = 0 0 paper_w paper_h)
-    so pyaxidraw renders it 1:1 on the plotter bed.
+    so NextDraw renders it 1:1 on the plotter bed.
     """
     tree = etree.parse(str(svg_path))
     root = tree.getroot()

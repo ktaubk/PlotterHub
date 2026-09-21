@@ -181,9 +181,15 @@ async function uploadAndQueue(file) {
 
     // Auto-fill layer selections: select all layers on a fresh upload so
     // re-dropping the same file gives a clean reset, regardless of labels.
-    const layer_selections = svg.layers.map((l) => ({ index: l.index, label: l.label }));
+    // A file with no Inkscape layers comes back as one implicit layer
+    // standing for the whole document — it has no label of its own, so name
+    // it here. An empty list means the SVG had nothing to plot at all.
+    const layer_selections = svg.layers.map((l) => ({
+      index: l.index,
+      label: l.implicit ? t("layers.whole_document") : l.label,
+    }));
     if (layer_selections.length === 0) {
-      throw new Error(t("upload.no_layers"));
+      throw new Error(t("upload.empty_svg"));
     }
 
     // Auto-detect paper
@@ -561,6 +567,20 @@ function createCardForJob(job) {
   return card;
 }
 
+// Elements that put ink on the page. Mirrors SHAPE_TAGS in app/svg_utils.py —
+// the two must agree on what counts as plottable, or the browser and the
+// server will disagree about whether a file has an implicit layer.
+const SHAPE_SELECTOR = "path,rect,circle,ellipse,line,polyline,polygon,text,use,image";
+
+// True if the document draws anything outside <defs>. A <use> counts: it is
+// how <defs> content actually reaches the page.
+function hasPlottableContent(root) {
+  for (const el of root.querySelectorAll(SHAPE_SELECTOR)) {
+    if (!el.closest("defs")) return true;
+  }
+  return false;
+}
+
 async function fetchSvgMeta(svg_id) {
   try {
     const res = await fetch(`/svg/${svg_id}`);
@@ -576,8 +596,14 @@ async function fetchSvgMeta(svg_id) {
       const mode = child.getAttribute("inkscape:groupmode");
       if (mode !== "layer") continue;
       const label = child.getAttribute("inkscape:label") || t("layer.default_label", { n: index + 1 });
-      layers.push({ index, label, addressable: !!label && /^\d/.test(label) });
+      layers.push({ index, label, addressable: !!label && /^\d/.test(label), implicit: false });
       index++;
+    }
+    // No Inkscape layers, but there is something to draw: one implicit layer
+    // standing for the whole document, matching parse_layers() server-side.
+    if (layers.length === 0 && hasPlottableContent(root)) {
+      layers.push({ index: 0, label: t("layers.whole_document"),
+                    addressable: false, implicit: true });
     }
     return {
       id: svg_id,

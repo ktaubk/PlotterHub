@@ -522,7 +522,7 @@ async def api_create_job(file: UploadFile = File(...),
 
     if not info["layers"]:
         path.unlink(missing_ok=True)
-        raise HTTPException(400, "SVG contains no Inkscape layers")
+        raise HTTPException(400, "SVG contains nothing to plot")
     if not any(s.get("selected", True) for s in layer_selections):
         path.unlink(missing_ok=True)
         raise HTTPException(400, "all layers were deselected")

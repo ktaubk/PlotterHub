@@ -116,7 +116,7 @@
   "upload.processing": "Bezig met verwerken van {name}…",
   "upload.not_svg": "{name} is geen SVG-bestand.",
   "upload.files_skipped": "{count} bestanden zijn overgeslagen — alleen .svg-bestanden worden geaccepteerd.",
-  "upload.no_layers": "Deze SVG bevat geen Inkscape-lagen. Open hem in Inkscape, voeg minstens één laag toe en exporteer opnieuw.",
+  "upload.empty_svg": "Deze SVG heeft niets om te plotten — er zitten geen paden of vormen in.",
   "upload.failed": "Uploaden mislukt: {message}",
 
   "queue.empty": "Sleep hierboven een SVG om te beginnen.",
@@ -151,6 +151,8 @@
   "plotinfo.pen_lifts": "Keren pen optillen",
 
   "card.layers": "Lagen",
+
+  "layers.whole_document": "Hele document",
   "card.stages": "Fasen",
   "card.page": "Pagina",
   "card.paper_size": "Papierformaat",
