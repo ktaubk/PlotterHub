@@ -20,6 +20,10 @@ PEN_UP, PEN_DOWN_MIN (lightest touch that marks — the default pen-down) and
 PEN_DOWN_MAX (hardest useful press, a lower number):
 
     from plotterhub import plotter, PEN_DOWN_MIN, PEN_DOWN_MAX
+
+To vary pressure *along* a stroke, call set_pressure(ad, height) between
+lineto()s: it moves the pen-down height while the pen stays on the paper.
+(ad.update() can't do this — it lifts the pen whenever a height changes.)
 """
 
 import os
@@ -32,6 +36,24 @@ _UNITS = {"in": 0, "cm": 1, "mm": 2}
 PEN_UP = int(os.environ.get("PLOTTER_PEN_UP", "60"))
 PEN_DOWN_MIN = int(os.environ.get("PLOTTER_PEN_DOWN", "40"))
 PEN_DOWN_MAX = int(os.environ.get("PLOTTER_PEN_DOWN_MAX", "25"))
+
+
+def set_pressure(ad, pen_pos_down: float) -> None:
+    """Change the pen-down height mid-stroke without lifting the pen.
+
+    Sets the EBB's pen-down servo position (SC,5) and, if the pen is down,
+    re-issues pen-down (SP,0) with no delay, so the servo eases to the new
+    height while the carriage keeps moving. Lower = more pressure.
+    """
+    pos = max(0.0, min(100.0, float(pen_pos_down)))
+    ad.options.pen_pos_down = pos
+    params = ad.params
+    smin, smax = getattr(params, "servo_min", None), getattr(params, "servo_max", None)
+    if smin is None or smax is None:
+        return  # preview stand-in: recording the option is enough
+    ad.usb_command(f"SC,5,{int(round(smin + (smax - smin) * pos / 100))}")
+    if not ad.current_pen():  # current_pen() is True when the pen is up
+        ad.usb_command(f"SP,0,0,{params.servo_pin}")
 
 
 @contextmanager

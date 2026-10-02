@@ -115,6 +115,10 @@ plotter meanwhile. Scripts use `plot_scripts/lib/plotterhub.py`'s
 `page=(w, h)` mm is drawn as an outline in Preview).
 Examples: `plot_scripts/examples/` (tracked); UI saves: `plot_scripts/user/`
 (gitignored). Stop = SIGINT, SIGKILL after 5 s, then `walk_home()`.
+`ad.update()` lifts the pen whenever a height changes (servo re-init), so
+pressure *along* a stroke uses `plotterhub.set_pressure()`: `SC,5` (new
+pen-down servo value) then `SP,0,0` while down — the servo eases to the new
+height mid-move. The preview shim starts a new stroke on each change.
 **Preview** runs the script with `plot_scripts/preview_shim/` first on
 `PYTHONPATH`: a fake `nextdraw` that records interactive moves (mm) and
 dumps JSON at exit — no hardware, no port lock. `plot_setup`/`plot_run`

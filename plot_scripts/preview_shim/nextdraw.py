@@ -134,6 +134,10 @@ class NextDraw:
         if not (-0.01 <= x_mm <= w + 0.01 and -0.01 <= y_mm <= h + 0.01):
             self.out_of_bounds += 1
         if self._down:
+            # A pressure change mid-stroke (plotterhub.set_pressure) starts a
+            # new stroke from here so each piece keeps its own pen height.
+            if self._stroke is not None and self._stroke["pen_pos_down"] != self.options.pen_pos_down:
+                self._stroke = None
             if self._stroke is None:
                 self._stroke = {
                     "pts": [[round(self._x, 3), round(self._y, 3)]],
