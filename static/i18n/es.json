@@ -60,6 +60,7 @@
   "pen.steps_hint": "Haz clic en un paso para repetirlo; los demás resultados se conservan.",
   "pen.order_warn": "Las alturas están desordenadas: la pluma arriba debe estar por encima de la marca más ligera, y esta igual o por encima de la presión máxima. Haz clic en un paso para repetirlo.",
   "pen.setup_text": "Pon papel de prueba en la esquina de inicio y la pluma en el soporte, con el ángulo con el que vas a trazar. El plotter dibuja una línea de prueba de 30 mm cada vez, empezando a 50 mm de la esquina y bajando por la hoja; después de cada una, responde lo que ves. Las alturas van de 0 a 100; más bajo presiona más.",
+  "pen.homing": "Buscando el origen real para que la zona de prueba empiece a 50 mm…",
   "pen.start": "Empezar",
   "pen.retry": "Reintentar",
   "pen.drawing": "Dibujando la línea #{n}…",

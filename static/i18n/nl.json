@@ -62,6 +62,7 @@
   "pen.steps_hint": "Klik op een stap om hem opnieuw te doen; je andere resultaten blijven.",
   "pen.order_warn": "De hoogtes kloppen niet: pen omhoog moet boven de lichtste lijn liggen, en die op of boven de hardste druk. Klik op een stap om hem opnieuw te doen.",
   "pen.setup_text": "Leg kladpapier in de thuishoek en zet de pen in de houder, onder de hoek waarmee je plot. De plotter tekent telkens één testlijn van 30 mm, vanaf 50 mm van de hoek naar beneden; geef na elke lijn aan wat je ziet. Hoogtes lopen van 0 tot 100; lager drukt harder.",
+  "pen.homing": "Thuispositie zoeken — de echte hoek, zodat het testgebied op 50 mm begint…",
   "pen.start": "Start",
   "pen.retry": "Opnieuw",
   "pen.drawing": "Lijn #{n} tekenen…",

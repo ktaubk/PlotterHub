@@ -38,6 +38,7 @@ class NextDraw:
         self.options.mode = "plot"
         self.params = types.SimpleNamespace(travel_x=16.93, travel_y=11.69)
         self.connected = False
+        self.plot_status = types.SimpleNamespace(stopped=0)
         self._x = self._y = 0.0           # mm
         self._down = False
         self._stroke = None               # current pen-down stroke dict

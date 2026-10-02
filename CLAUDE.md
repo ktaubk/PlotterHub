@@ -132,7 +132,10 @@ then refine by 1) → heaviest press (5 harder while it improves) → pen up
 Clicking a step chip redoes just that step (others kept), then returns to
 Save; a height already known to mark is never redrawn. Test
 lines only go in the test area from (50, 50) mm: 30 mm long, 6 mm apart,
-30 per column. Auto-closes after 5 min idle. Results are the `pen_pos_up` /
+30 per column. Connect runs `plot_worker.force_home()` first (raise pen + `mode="find_home"`,
+which clears the homed flag): a homed NextDraw otherwise trusts a stale step
+count after the carriage is pushed by hand, and the test area lands short.
+Auto-closes after 5 min idle. Results are the `pen_pos_up` /
 `pen_pos_down` / `pen_pos_down_max` settings, applied in
 `apply_machine_options` and passed to scripts as `PLOTTER_PEN_UP/DOWN/DOWN_MAX`.
 `/queue/start` refuses while a script or calibration holds the port

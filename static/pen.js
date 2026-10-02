@@ -110,6 +110,8 @@ async function ensureConnected() {
   if (pen.active) return true;
   penBusy = true;
   setPenMessage("");
+  penQuestion.textContent = t("pen.homing");
+  penAnswers.replaceChildren();
   try {
     await penRequest("/pen/connect");
     return true;

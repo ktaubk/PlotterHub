@@ -60,6 +60,7 @@
   "pen.steps_hint": "Clique em uma etapa para refazê-la; os outros resultados são mantidos.",
   "pen.order_warn": "As alturas estão fora de ordem: caneta em cima acima da marca leve, e a marca leve igual ou acima da pressão máxima. Clique em uma etapa para refazê-la.",
   "pen.setup_text": "Coloque papel de rascunho no canto inicial e a caneta no suporte, no ângulo que vai usar. O plotter desenha uma linha de teste de 30 mm por vez, começando a 50 mm do canto e descendo a folha; depois de cada uma, responda o que vê. As alturas vão de 0 a 100; mais baixo pressiona mais.",
+  "pen.homing": "Buscando a origem real para a área de teste começar a 50 mm…",
   "pen.start": "Começar",
   "pen.retry": "Tentar de novo",
   "pen.drawing": "Desenhando a linha #{n}…",

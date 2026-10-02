@@ -311,6 +311,35 @@ def walk_home() -> None:
                 pass
 
 
+def force_home() -> None:
+    """Re-home for real: raise the pen, then run the homing sweep even if
+    the machine believes it's already homed.
+
+    A homed NextDraw trusts its step counter, so if the carriage was pushed
+    by hand while the motors were off, "home" — and every position measured
+    from it — is off by that much. ``mode="find_home"`` clears the homed
+    flag first, forcing the sweep against the corner.
+    """
+    for mode, cmd in (("utility", "raise_pen"), ("find_home", None)):
+        ad = NextDraw()
+        try:
+            ad.plot_setup()
+            ad.options.mode = mode
+            if cmd:
+                ad.options.utility_cmd = cmd
+            apply_machine_options(ad)
+            ad.plot_run()
+            if ad.plot_status.stopped == 106:
+                raise RuntimeError("Homing failed. Check that the carriage can move freely, then try again.")
+            if ad.plot_status.stopped == 101:
+                raise RuntimeError("Could not connect to the plotter")
+        finally:
+            try:
+                ad.disconnect()
+            except Exception:
+                pass
+
+
 def _run_preview(preview_svg_path: Path, job: dict,
                  cancel_event: threading.Event | None = None) -> dict | None:
     global _preview_proc

@@ -6,8 +6,9 @@ pen down), the hardest useful press (max pen down) and the lowest lift whose
 pen-up hops stay clean (pen up) — asking for one test line per step. Heights
 are 0-100, higher = higher, so max pen down is the *lower* number.
 
-Test lines are drawn only in a test area at least 50 mm from the home
-corner: 30 mm lines, each 6 mm below the last, in columns of 30. The pen is
+Connecting forces a real homing sweep first, so the test area is measured
+from the true corner. Test lines are drawn only in a test area at least
+50 mm from the home corner: 30 mm lines, each 6 mm below the last, in columns of 30. The pen is
 never lowered anywhere else.
 
 The session owns the USB port (plot_worker.acquire_port) from connect until
@@ -86,6 +87,9 @@ def connect() -> dict:
         plot_worker.acquire_port()  # raises "Plotter is busy"
         ad = NextDraw()
         try:
+            # Measure the test area from the true corner, not from a stale
+            # step count (carriage nudged by hand while the motors were off).
+            plot_worker.force_home()
             ad.interactive()
             plot_worker.apply_machine_options(ad)
             ad.options.units = 2  # mm
