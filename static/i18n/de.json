@@ -57,6 +57,8 @@
   "pen.step_max": "Stärkster Druck",
   "pen.step_up": "Stift oben",
   "pen.step_review": "Speichern",
+  "pen.steps_hint": "Klicke auf einen Schritt, um ihn zu wiederholen; die übrigen Ergebnisse bleiben.",
+  "pen.order_warn": "Die Höhen passen nicht zusammen: Stift oben muss über dem leichtesten Strich liegen, und dieser auf oder über dem stärksten Druck. Klicke auf einen Schritt, um ihn zu wiederholen.",
   "pen.setup_text": "Schmierpapier an die Home-Ecke legen und den Stift im Plot-Winkel in den Halter setzen. Der Plotter zeichnet jeweils eine 30-mm-Testlinie, ab 50 mm von der Ecke nach unten; beantworte nach jeder, was du siehst. Höhen gehen von 0 bis 100, niedriger drückt stärker.",
   "pen.start": "Start",
   "pen.retry": "Erneut versuchen",

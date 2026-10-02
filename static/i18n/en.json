@@ -59,6 +59,8 @@
   "pen.step_max": "Heaviest press",
   "pen.step_up": "Pen up",
   "pen.step_review": "Save",
+  "pen.steps_hint": "Click a step to redo it; your other results are kept.",
+  "pen.order_warn": "These heights are out of order — pen up should be above the lightest mark, and the lightest mark at or above the heaviest press. Click a step to redo it.",
   "pen.setup_text": "Put scrap paper in the home corner and the pen in the holder, at the angle you'll plot with. The plotter draws one 30 mm test line at a time, starting 50 mm in from the corner and working down the page; after each one, answer what you see. Heights run 0–100, and lower presses harder.",
   "pen.start": "Start",
   "pen.retry": "Try again",

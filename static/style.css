@@ -691,7 +691,7 @@ button.danger:hover:not(:disabled) { background: #CC4D4D; }
 .pen-head h2 { margin: 0; font-size: 1.1rem; }
 .pen-head .muted { margin: 0; }
 .pen-head .spacer { flex: 1; }
-.pen-steps { display: flex; gap: 0.25rem; list-style: none; margin: 0 0 1rem; padding: 0; counter-reset: step; flex-wrap: wrap; }
+.pen-steps { display: flex; gap: 0.25rem; list-style: none; margin: 0; padding: 0; counter-reset: step; flex-wrap: wrap; }
 .pen-steps li {
   counter-increment: step; flex: 1; min-width: 7rem; padding: 0.45rem 0.6rem;
   background: #f1f1f1; color: #888; border-radius: 6px; font-size: 0.85rem;
@@ -699,6 +699,10 @@ button.danger:hover:not(:disabled) { background: #CC4D4D; }
 .pen-steps li::before { content: counter(step) ". "; }
 .pen-steps li.done { background: #e9f5e9; color: #3d7a3d; }
 .pen-steps li.current { background: #FEC600; color: #222; font-weight: 600; }
+.pen-steps li.available:not(.current) { cursor: pointer; }
+.pen-steps li.available:not(.current):hover { outline: 2px solid #FEC600; outline-offset: -2px; }
+.pen-steps li[aria-disabled="true"]:not(.current) { opacity: 0.6; }
+.pen-steps-hint { margin: 0.35rem 0 1rem; font-size: 0.8rem; }
 .pen-body { display: grid; grid-template-columns: minmax(0, 1fr) 16rem; gap: 1.5rem; align-items: start; }
 .pen-question { font-size: 1.05rem; line-height: 1.5; margin: 0 0 0.75rem; }
 .pen-results { display: flex; gap: 0.5rem; margin-top: 1.25rem; flex-wrap: wrap; }

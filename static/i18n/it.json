@@ -57,6 +57,8 @@
   "pen.step_max": "Pressione massima",
   "pen.step_up": "Penna su",
   "pen.step_review": "Salva",
+  "pen.steps_hint": "Fai clic su un passaggio per ripeterlo; gli altri risultati restano.",
+  "pen.order_warn": "Le altezze non sono in ordine: penna su sopra il segno leggero, e il segno leggero uguale o sopra la pressione massima. Fai clic su un passaggio per ripeterlo.",
   "pen.setup_text": "Metti carta di prova nell’angolo di casa e la penna nel supporto, con l’angolo che userai. Il plotter disegna una linea di prova di 30 mm alla volta, partendo a 50 mm dall’angolo e scendendo; dopo ognuna, rispondi a cosa vedi. Le altezze vanno da 0 a 100; più basso preme di più.",
   "pen.start": "Inizia",
   "pen.retry": "Riprova",

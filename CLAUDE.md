@@ -128,7 +128,9 @@ A guided calibration (`static/pen.js` drives the steps; `app/pen_tuner.py`
 holds one interactive NextDraw session, port locked via `acquire_port`, and
 draws each test line). Steps: lightest mark (step 5 down until it marks,
 then refine by 1) → heaviest press (5 harder while it improves) → pen up
-(dashed line; raise 5 while the gaps pick up marks) → sample + save. Test
+(dashed line; raise 5 while the gaps pick up marks) → sample + save.
+Clicking a step chip redoes just that step (others kept), then returns to
+Save; a height already known to mark is never redrawn. Test
 lines only go in the test area from (50, 50) mm: 30 mm long, 6 mm apart,
 30 per column. Auto-closes after 5 min idle. Results are the `pen_pos_up` /
 `pen_pos_down` / `pen_pos_down_max` settings, applied in

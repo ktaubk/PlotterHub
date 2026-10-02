@@ -57,6 +57,8 @@
   "pen.step_max": "Pression max",
   "pen.step_up": "Stylo levé",
   "pen.step_review": "Enregistrer",
+  "pen.steps_hint": "Cliquez sur une étape pour la refaire ; les autres résultats sont conservés.",
+  "pen.order_warn": "Ces hauteurs sont dans le désordre : stylo levé au-dessus du trait léger, et trait léger au moins aussi haut que la pression max. Cliquez sur une étape pour la refaire.",
   "pen.setup_text": "Placez du papier brouillon au coin d’origine et le stylo dans le support, à l’angle de tracé. Le traceur trace une ligne d’essai de 30 mm à la fois, à partir de 50 mm du coin en descendant la feuille ; après chacune, dites ce que vous voyez. Les hauteurs vont de 0 à 100 ; plus bas appuie plus fort.",
   "pen.start": "Commencer",
   "pen.retry": "Réessayer",

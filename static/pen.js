@@ -1,7 +1,8 @@
 // Pen tab: guided pen calibration (app/pen_tuner.py draws the test lines).
 // Steps: set up → lightest mark (min pen down) → heaviest press (max pen
 // down) → pen up → save. Each step draws one test line, asks what it looks
-// like, and picks the next height from the answer. Heights are 0-100,
+// like, and picks the next height from the answer. Click a step in the step
+// bar to redo just that one; the other results are kept. Heights are 0-100,
 // higher = higher, so pressing harder means a lower number.
 // Loaded after scripts.js; app.js forwards pen_status events to window.onPenEvent.
 
@@ -68,6 +69,7 @@ async function penRequest(path, body) {
 // Draw one test line, log it, then ask the step's question.
 async function drawLine(down, opts = {}) {
   penBusy = true;
+  renderPen();
   const n = pen.tests + 1;
   penQuestion.textContent = t("pen.drawing", { n });
   penAnswers.replaceChildren();
@@ -104,20 +106,51 @@ function stepSetup() {
   ask(t("pen.setup_text"), [[t("pen.start"), "primary", startCalibration]]);
 }
 
-async function startCalibration() {
+async function ensureConnected() {
+  if (pen.active) return true;
   penBusy = true;
   setPenMessage("");
   try {
     await penRequest("/pen/connect");
+    return true;
   } catch (e) {
     setPenMessage(t("error.request_failed", { message: e.message }), true);
-    return;
+    return false;
   } finally {
     penBusy = false;
   }
-  cal.step = "min";
-  cal.h = Math.min(100, pen.saved_down + 15);   // start clear of the paper
-  minTrial();
+}
+
+async function startCalibration() {
+  if (await ensureConnected()) startStep("min");
+}
+
+// Begin (or redo) one search step from its starting height.
+function startStep(step) {
+  cal.step = step;
+  setPenMessage("");
+  if (step === "min") {
+    cal.fine = false;
+    cal.lastNo = cal.coarseMark = null;
+    cal.h = Math.min(100, (cal.min ?? pen.saved_down) + 15);   // start clear of the paper
+    return minTrial();
+  }
+  if (step === "max") {
+    if (cal.min === 0) return foundMax(0);
+    cal.prev = cal.min;
+    cal.h = Math.max(0, cal.min - COARSE);
+    return maxTrial();
+  }
+  cal.h = Math.min(100, cal.min + 2 * COARSE);
+  upTrial();
+}
+
+// After a step: run the first one still missing, else go to Save.
+function nextStep() {
+  cal.saved = false;
+  const missing = ["min", "max", "up"].find((k) => cal[k] == null);
+  if (missing) startStep(missing);
+  else stepReview();
 }
 
 // Lightest mark: step down by COARSE until a line marks, then go back to
@@ -134,7 +167,8 @@ async function minTrial() {
 function minNoMark() {
   cal.lastNo = cal.h;
   const next = cal.h - (cal.fine ? 1 : COARSE);
-  if (cal.fine && next <= cal.coarseMark) return foundMin(cal.coarseMark);
+  // Never redraw a height already known to mark: that's the answer range.
+  if (cal.coarseMark != null && next <= cal.coarseMark) return narrowMin(cal.coarseMark);
   if (next < 0) { setPenMessage(t("pen.limit", { h: 0 })); return foundMin(0); }
   cal.h = next;
   minTrial();
@@ -145,23 +179,26 @@ function minMarks() {
   if (cal.lastNo == null) {
     // The very first line marked, so the search started too low: go higher.
     if (cal.h >= 100) return foundMin(100);
+    cal.coarseMark = cal.h;
     cal.h = Math.min(100, cal.h + 2 * COARSE);
     return minTrial();
   }
-  if (cal.lastNo - cal.h <= 1) return foundMin(cal.h);
+  narrowMin(cal.h);
+}
+
+// ``mark`` marks and cal.lastNo doesn't: refine between them by 1.
+function narrowMin(mark) {
+  if (cal.fine || cal.lastNo - mark <= 1) return foundMin(mark);
   cal.fine = true;
-  cal.coarseMark = cal.h;
+  cal.coarseMark = mark;
   cal.h = cal.lastNo - 1;
   minTrial();
 }
 
 function foundMin(h) {
   cal.min = h;
-  cal.step = "max";
-  if (h === 0) return foundMax(0);
-  cal.prev = h;
-  cal.h = Math.max(0, h - COARSE);
-  maxTrial();
+  if (h === 0) cal.max = 0;   // can't press harder than 0
+  nextStep();
 }
 
 // Heaviest press: keep pressing harder by COARSE while lines improve.
@@ -183,9 +220,7 @@ async function maxTrial() {
 
 function foundMax(h) {
   cal.max = h;
-  cal.step = "up";
-  cal.h = Math.min(100, cal.min + 2 * COARSE);
-  upTrial();
+  nextStep();
 }
 
 // Pen up: dashes at the lightest mark with pen-up hops at the test height;
@@ -206,7 +241,7 @@ async function upTrial() {
 
 function foundUp(h) {
   cal.up = h;
-  stepReview();
+  nextStep();
 }
 
 function stepReview() {
@@ -218,6 +253,7 @@ function stepReview() {
     [t("pen.restart"), "neutral", () => { resetCal(); startCalibration(); }],
   ];
   ask(cal.saved ? t("pen.saved_now", vals) : t("pen.review_text", vals), buttons);
+  if (!(cal.up > cal.min && cal.min >= cal.max)) setPenMessage(t("pen.order_warn"), true);
 }
 
 async function drawSample() {
@@ -240,17 +276,47 @@ async function saveCalibration() {
 
 // ───── Render ────────────────────────────────────────────────────────────
 
-const STEP_ORDER = ["setup", "min", "max", "up", "review"];
+function stepDone(step) {
+  if (step === "setup") return !!pen.active;
+  if (step === "review") return cal.saved;
+  return cal[step] != null;
+}
+
+// Lightest mark can always be (re)done; the others need it first, and Save
+// needs all three.
+function stepAvailable(step) {
+  if (step === "setup" || step === "min") return true;
+  if (step === "review") return cal.min != null && cal.max != null && cal.up != null;
+  return cal.min != null;
+}
+
+async function goToStep(step) {
+  if (penBusy || !stepAvailable(step) || step === cal.step) return;
+  if (step === "setup") return stepSetup();
+  if (step === "review") return stepReview();
+  if (await ensureConnected()) startStep(step);
+}
+
+document.querySelectorAll("#pen-steps li").forEach((li) => {
+  li.tabIndex = 0;
+  li.setAttribute("role", "button");
+  li.addEventListener("click", () => goToStep(li.dataset.step));
+  li.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); goToStep(li.dataset.step); }
+  });
+});
 
 function renderPen() {
   const on = !!pen.active;
   penClose.hidden = !on;
   penConn.textContent = on ? t("pen.connected") : t("pen.disconnected");
-  const cur = STEP_ORDER.indexOf(cal.step);
   document.querySelectorAll("#pen-steps li").forEach((li) => {
-    const i = STEP_ORDER.indexOf(li.dataset.step);
-    li.classList.toggle("current", i === cur);
-    li.classList.toggle("done", i < cur || (cal.saved && i === cur));
+    const step = li.dataset.step;
+    li.classList.toggle("current", step === cal.step);
+    li.classList.toggle("done", stepDone(step));
+    const ok = stepAvailable(step) && !penBusy;
+    li.classList.toggle("available", ok);
+    li.setAttribute("aria-disabled", ok ? "false" : "true");
   });
   for (const key of ["min", "max", "up"]) {
     const el = document.querySelector(`.pen-result[data-key="${key}"]`);
