@@ -130,10 +130,7 @@ draws each test line). Steps: lightest mark (step 5 down until it marks,
 then refine by 1) → heaviest press (5 harder while it improves) → pen up
 (dashed line; raise 5 while the gaps pick up marks) → sample + save.
 Clicking a step chip redoes just that step (others kept), then returns to
-Save; a height already known to mark is never redrawn. **Place a new pen**
-(Set up step) holds the holder lowered at the saved lightest mark over the
-test area (`/pen/hold`) so the pen is clamped tip-on-paper; it clears old
-results and the next search starts from the seated height. Test
+Save; a height already known to mark is never redrawn. Test
 lines only go in the test area from (50, 50) mm: 30 mm long, 6 mm apart,
 30 per column. Auto-closes after 5 min idle. Results are the `pen_pos_up` /
 `pen_pos_down` / `pen_pos_down_max` settings, applied in

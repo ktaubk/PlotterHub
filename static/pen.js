@@ -103,55 +103,7 @@ function ask(question, answers) {
 
 function stepSetup() {
   cal.step = "setup";
-  ask(t("pen.setup_text") + " " + t("pen.setup_place_hint"), [
-    [t("pen.place"), "neutral", startPlace],
-    [t("pen.start"), "primary", startCalibration],
-  ]);
-}
-
-// Place a new pen: the holder waits over the test area, lowered to the saved
-// lightest mark, so the pen is clamped with its tip just resting on the paper
-// and its heights start out where the calibration expects them.
-async function startPlace() {
-  if (!(await ensureConnected())) return;
-  // A new pen makes earlier results meaningless; start it at the saved
-  // lightest mark so the saved heights carry over as closely as possible.
-  cal.placeH = cal.min ?? pen.saved_down;
-  cal.min = cal.max = cal.up = null;
-  cal.saved = false;
-  placeHold(true);
-}
-
-async function placeHold(lowered) {
-  penBusy = true;
-  renderPen();
-  setPenMessage("");
-  try {
-    await penRequest("/pen/hold", { pen_pos_down: cal.placeH, lowered });
-  } catch (e) {
-    setPenMessage(t("error.request_failed", { message: e.message }), true);
-  } finally {
-    penBusy = false;
-  }
-  placeAsk(lowered);
-}
-
-function placeAsk(lowered) {
-  const h = cal.placeH;
-  const up = Math.min(100, Math.max(pen.saved_up, h + 10));
-  const nudge = (d) => () => { cal.placeH = Math.max(0, Math.min(100, h + d)); placeHold(true); };
-  const lowText = t("pen.place_lowered", { h }) +
-    (h === pen.saved_down ? " " + t("pen.place_is_saved") : "");
-  ask(lowered ? lowText : t("pen.place_raised", { h, up }), [
-    lowered ? [t("pen.place_raise"), "primary", () => placeHold(false)]
-            : [t("pen.place_lower"), "neutral", () => placeHold(true)],
-    [t("pen.place_test", { h }), "secondary", async () => {
-      if (await drawLine(h) != null) placeAsk(false);
-    }],
-    ["−5", "neutral", nudge(-5)],
-    ["+5", "neutral", nudge(5)],
-    [t("pen.start"), lowered ? "neutral" : "primary", () => startStep("min")],
-  ]);
+  ask(t("pen.setup_text"), [[t("pen.start"), "primary", startCalibration]]);
 }
 
 async function ensureConnected() {
@@ -180,9 +132,7 @@ function startStep(step) {
   if (step === "min") {
     cal.fine = false;
     cal.lastNo = cal.coarseMark = null;
-    // Start clear of the paper: above the last result, the height a new pen
-    // was seated at, or the saved lightest mark.
-    cal.h = Math.min(100, (cal.min ?? cal.placeH ?? pen.saved_down) + 15);
+    cal.h = Math.min(100, (cal.min ?? pen.saved_down) + 15);   // start clear of the paper
     return minTrial();
   }
   if (step === "max") {
