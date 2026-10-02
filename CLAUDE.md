@@ -124,14 +124,18 @@ the rest of the unauthenticated web UI, but worth remembering.
 
 ## Pen tab
 
-`app/pen_tuner.py` holds one interactive NextDraw session (port locked via
-`acquire_port`) so the UI can nudge `pen_pos_up/down`; each change calls
-`update()` (re-inits the servo, pen goes up) then `pendown()` if testing
-down. The pen only lowers in the test area (from 50, 50 mm; test lines
-step 4 mm down), never at home. Auto-closes after 5 min idle. Saved heights are the `pen_pos_up` /
-`pen_pos_down` settings, applied in `apply_machine_options` and passed to
-scripts as `PLOTTER_PEN_UP/DOWN`. `/queue/start` refuses while a script or
-tuning session holds the port (`_port_taken()` in `main.py`).
+A guided calibration (`static/pen.js` drives the steps; `app/pen_tuner.py`
+holds one interactive NextDraw session, port locked via `acquire_port`, and
+draws each test line). Steps: lightest mark (step 5 down until it marks,
+then refine by 1) → heaviest press (5 harder while it improves) → pen up
+(dashed line; raise 5 while the gaps pick up marks) → sample + save. Test
+lines only go in the test area from (50, 50) mm: 30 mm long, 6 mm apart,
+30 per column. Auto-closes after 5 min idle. Results are the `pen_pos_up` /
+`pen_pos_down` / `pen_pos_down_max` settings, applied in
+`apply_machine_options` and passed to scripts as `PLOTTER_PEN_UP/DOWN/DOWN_MAX`.
+`/queue/start` refuses while a script or calibration holds the port
+(`_port_taken()` in `main.py`). To click through it without hardware, run
+the app with `PYTHONPATH=plot_scripts/preview_shim` (the fake `nextdraw`).
 
 ## Conventions
 

@@ -903,14 +903,19 @@ def stop_script():
     return {"ok": True}
 
 
-# Pen heights --------------------------------------------------------------
-# Live tuning session (see pen_tuner).
+# Pen calibration ---------------------------------------------------------
+# Guided calibration session (see pen_tuner); the UI drives the steps.
 
-class PenHeights(BaseModel):
+class PenLine(BaseModel):
+    pen_pos_down: int = Field(..., ge=0, le=100)
+    pen_pos_up: int | None = Field(None, ge=0, le=100)
+    dashed: bool = False
+
+
+class PenSave(BaseModel):
     pen_pos_up: int = Field(..., ge=0, le=100)
     pen_pos_down: int = Field(..., ge=0, le=100)
     pen_pos_down_max: int = Field(..., ge=0, le=100)
-    position: Literal["up", "down", "down_max"] = "up"
 
 
 def _pen_call(fn, *args):
@@ -930,20 +935,14 @@ def pen_connect():
     return _pen_call(pen_tuner.connect)
 
 
-@app.post("/pen/heights")
-def pen_heights(req: PenHeights):
-    return _pen_call(pen_tuner.set_heights, req.pen_pos_up, req.pen_pos_down,
-                     req.pen_pos_down_max, req.position)
-
-
-@app.post("/pen/test-line")
-def pen_test_line():
-    return _pen_call(pen_tuner.test_line)
+@app.post("/pen/line")
+def pen_line(req: PenLine):
+    return _pen_call(pen_tuner.draw, req.pen_pos_down, req.pen_pos_up, req.dashed)
 
 
 @app.post("/pen/save")
-def pen_save():
-    return _pen_call(pen_tuner.save)
+def pen_save(req: PenSave):
+    return _pen_call(pen_tuner.save, req.pen_pos_up, req.pen_pos_down, req.pen_pos_down_max)
 
 
 @app.post("/pen/close")

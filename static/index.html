@@ -367,50 +367,31 @@
     <div id="tab-pen" class="tab-panel" hidden>
       <div class="pen-card">
         <div class="pen-head">
-          <h2 data-i18n="pen.title">Pen heights</h2>
+          <h2 data-i18n="pen.title">Pen calibration</h2>
           <span id="pen-conn" class="muted"></span>
           <span class="spacer"></span>
-          <button id="pen-connect" class="primary" data-i18n="pen.connect">Connect</button>
           <button id="pen-close" class="neutral" hidden data-i18n="pen.done">Done</button>
         </div>
+        <ol class="pen-steps" id="pen-steps">
+          <li data-step="setup" data-i18n="pen.step_setup">Set up</li>
+          <li data-step="min" data-i18n="pen.step_min">Lightest mark</li>
+          <li data-step="max" data-i18n="pen.step_max">Heaviest press</li>
+          <li data-step="up" data-i18n="pen.step_up">Pen up</li>
+          <li data-step="review" data-i18n="pen.step_review">Save</li>
+        </ol>
         <div class="pen-body">
-          <svg id="pen-gauge" class="pen-gauge" viewBox="0 0 70 220" aria-hidden="true"></svg>
-          <div class="pen-controls">
-            <div class="pen-row" data-which="up">
-              <span class="pen-label"><span data-i18n="pen.up">Pen up</span><small data-i18n="pen.up_hint">clears the paper</small></span>
-              <button class="neutral pen-dec">−</button>
-              <span class="pen-value" id="pen-up-value">60</span>
-              <button class="neutral pen-inc">+</button>
-              <button class="neutral pen-go" data-i18n="pen.raise">Raise</button>
-            </div>
-            <div class="pen-row" data-which="down">
-              <span class="pen-label"><span data-i18n="pen.down">Min pen down</span><small data-i18n="pen.down_hint">lightest touch that marks</small></span>
-              <button class="neutral pen-dec">−</button>
-              <span class="pen-value" id="pen-down-value">40</span>
-              <button class="neutral pen-inc">+</button>
-              <button class="neutral pen-go" data-i18n="pen.lower">Lower</button>
-            </div>
-            <div class="pen-row" data-which="down_max">
-              <span class="pen-label"><span data-i18n="pen.down_max">Max pen down</span><small data-i18n="pen.down_max_hint">hardest press before it skips</small></span>
-              <button class="neutral pen-dec">−</button>
-              <span class="pen-value" id="pen-down-max-value">25</span>
-              <button class="neutral pen-inc">+</button>
-              <button class="neutral pen-go" data-i18n="pen.lower">Lower</button>
-            </div>
-            <div class="pen-step">
-              <span data-i18n="pen.step">Step</span>
-              <button class="pen-step-btn" data-step="1">1</button>
-              <button class="pen-step-btn active" data-step="5">5</button>
-              <button class="pen-step-btn" data-step="10">10</button>
-            </div>
-            <div class="actions">
-              <button id="pen-test" class="secondary" data-i18n="pen.test_line">Draw test line</button>
-              <button id="pen-save" class="primary" data-i18n="pen.save">Save as default</button>
+          <div class="pen-stage">
+            <p id="pen-question" class="pen-question"></p>
+            <div id="pen-answers" class="actions"></div>
+            <div id="pen-message" class="muted"></div>
+            <div class="pen-results">
+              <div class="pen-result" data-key="min"><span data-i18n="pen.step_min">Lightest mark</span><b>—</b></div>
+              <div class="pen-result" data-key="max"><span data-i18n="pen.step_max">Heaviest press</span><b>—</b></div>
+              <div class="pen-result" data-key="up"><span data-i18n="pen.step_up">Pen up</span><b>—</b></div>
             </div>
             <div id="pen-saved" class="muted"></div>
-            <div id="pen-message" class="muted"></div>
           </div>
-          <div class="pen-howto" data-i18n-html="pen.howto_html"></div>
+          <ol id="pen-log" class="pen-log"></ol>
         </div>
       </div>
     </div>

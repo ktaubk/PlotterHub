@@ -687,38 +687,34 @@ button.danger:hover:not(:disabled) { background: #CC4D4D; }
 
 /* ───── Pen tab ───── */
 .pen-card { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 1rem 1.25rem; }
-.pen-head { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.pen-head { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
 .pen-head h2 { margin: 0; font-size: 1.1rem; }
 .pen-head .muted { margin: 0; }
 .pen-head .spacer { flex: 1; }
-.pen-body { display: grid; grid-template-columns: 70px auto minmax(0, 1fr); gap: 1.5rem; align-items: start; }
-.pen-gauge { width: 70px; height: 220px; }
-.pen-gauge .rail { stroke: #ddd; stroke-width: 4; stroke-linecap: round; }
-.pen-gauge .tick { font-size: 9px; fill: #999; }
-.pen-gauge .mark { stroke-width: 3; }
-.pen-gauge .mark.up, .pen-gauge .label.up { stroke: #00B7FE; fill: #00B7FE; }
-.pen-gauge .mark.down, .pen-gauge .label.down { stroke: #F28C33; fill: #F28C33; }
-.pen-gauge .mark.down-max, .pen-gauge .label.down-max { stroke: #c0392b; fill: #c0392b; }
-.pen-gauge .label { font-size: 12px; stroke: none; font-weight: 600; }
-.pen-gauge .tip { fill: #222; }
-.pen-controls { display: flex; flex-direction: column; gap: 0.75rem; }
-.pen-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.35rem 0.5rem; border-radius: 8px; border: 2px solid transparent; }
-.pen-row.current { border-color: #FEC600; background: #fffbea; }
-.pen-label { width: 9.5rem; font-weight: 600; display: flex; flex-direction: column; line-height: 1.2; }
-.pen-label small { font-weight: 400; color: #888; font-size: 0.75rem; }
-.pen-row[data-which="up"] .pen-label { color: #0090c9; }
-.pen-row[data-which="down"] .pen-label { color: #d4701c; }
-.pen-row[data-which="down_max"] .pen-label { color: #c0392b; }
-.pen-row .pen-dec, .pen-row .pen-inc { width: 2.6rem; padding: 0.5rem 0; font-size: 1.2rem; }
-.pen-value { min-width: 2.6rem; text-align: center; font: 600 1.5rem ui-monospace, Menlo, monospace; }
-.pen-step { display: flex; align-items: center; gap: 0.35rem; font-size: 0.9rem; color: #555; }
-.pen-step-btn { background: #e5e7eb; color: #222; padding: 0.3rem 0.7rem; font-size: 0.9rem; }
-.pen-step-btn.active { background: #222; color: #fff; }
-.pen-howto { font-size: 0.9rem; color: #444; line-height: 1.5; }
-.pen-howto ol { margin: 0; padding-left: 1.2rem; }
-.pen-howto li { margin-bottom: 0.5rem; }
+.pen-steps { display: flex; gap: 0.25rem; list-style: none; margin: 0 0 1rem; padding: 0; counter-reset: step; flex-wrap: wrap; }
+.pen-steps li {
+  counter-increment: step; flex: 1; min-width: 7rem; padding: 0.45rem 0.6rem;
+  background: #f1f1f1; color: #888; border-radius: 6px; font-size: 0.85rem;
+}
+.pen-steps li::before { content: counter(step) ". "; }
+.pen-steps li.done { background: #e9f5e9; color: #3d7a3d; }
+.pen-steps li.current { background: #FEC600; color: #222; font-weight: 600; }
+.pen-body { display: grid; grid-template-columns: minmax(0, 1fr) 16rem; gap: 1.5rem; align-items: start; }
+.pen-question { font-size: 1.05rem; line-height: 1.5; margin: 0 0 0.75rem; }
+.pen-results { display: flex; gap: 0.5rem; margin-top: 1.25rem; flex-wrap: wrap; }
+.pen-result { border: 1px solid #e5e5e5; border-radius: 8px; padding: 0.5rem 0.75rem; min-width: 8rem; }
+.pen-result span { display: block; font-size: 0.75rem; color: #777; }
+.pen-result b { font: 600 1.4rem ui-monospace, Menlo, monospace; }
+.pen-result.found { border-color: #66B366; background: #f3faf3; }
+.pen-log {
+  list-style: none; margin: 0; padding: 0.5rem 0.75rem; background: #fafafa; border: 1px solid #eee;
+  border-radius: 8px; font: 0.8rem/1.6 ui-monospace, Menlo, monospace; max-height: 22rem; overflow: auto;
+}
+.pen-log:empty { display: none; }
+.pen-log .r { color: #888; }
+.pen-log .r.yes { color: #3d7a3d; }
+.pen-log .r.no { color: #c0392b; }
 @media (max-width: 800px) {
-  .pen-body { grid-template-columns: 70px minmax(0, 1fr); }
-  .pen-howto { grid-column: 1 / -1; }
+  .pen-body { grid-template-columns: 1fr; }
 }
 #tab-pen button:disabled { opacity: 0.45; cursor: not-allowed; }
