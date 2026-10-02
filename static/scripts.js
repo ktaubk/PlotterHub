@@ -205,7 +205,7 @@ async function previewScript() {
     if (!res.ok) throw new Error(await readErr(res));
     const data = await res.json();
     if (seq !== previewSeq) return;  // a newer preview is on its way
-    renderPreview(data);
+    renderScriptPreview(data);
   } catch (e) {
     if (seq === previewSeq) previewWarnings.textContent = t("error.request_failed", { message: e.message });
   } finally {
@@ -216,7 +216,7 @@ async function previewScript() {
   }
 }
 
-function renderPreview(data) {
+function renderScriptPreview(data) {
   const [W, H] = data.travel_mm || [430, 297];
   // Frame the travel area, widened to include anything drawn outside it.
   const pad = 6;
