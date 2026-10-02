@@ -22,10 +22,12 @@ from . import config, plot_worker, state
 log = logging.getLogger(__name__)
 
 _IDLE_TIMEOUT_S = 300
-_TEST_X_MM, _TEST_Y_MM = 10.0, 10.0   # first test line's start
+# All pen-down tests happen in a test area at least 50 mm from the home
+# corner: the pen only lowers at the next test line's start, never at home.
+_TEST_X_MM, _TEST_Y_MM = 50.0, 50.0   # first test line's start
 _TEST_LEN_MM = 30.0
 _TEST_STEP_MM = 4.0                   # gap between successive test lines
-_TEST_ROWS = 40                       # wrap back to the top after this many
+_TEST_ROWS = 40                       # wrap back to the top after this many (y ≤ 206 mm)
 
 _lock = threading.RLock()
 _ad: NextDraw | None = None
@@ -73,14 +75,20 @@ def connect() -> dict:
             ad.options.units = 2  # mm
             if not ad.connect():
                 raise RuntimeError("Could not connect to the plotter")
+            _tests = 0
+            _go_to_test_spot(ad)  # wait over the test area, pen up
+            ad.block()
         except Exception:
+            try:
+                ad.disconnect()
+            except Exception:
+                pass
             plot_worker.release_port()
             raise
         _ad = ad
         _up, _down = config.PEN_POS_UP, config.PEN_POS_DOWN
         _down_max = config.PEN_POS_DOWN_MAX
         _position = "up"
-        _tests = 0
         _touch()
         _watchdog = threading.Thread(target=_watch_idle, daemon=True)
         _watchdog.start()
@@ -99,6 +107,19 @@ def _clamp(v: int) -> int:
     return max(0, min(100, int(v)))
 
 
+def _test_spot() -> tuple[float, float]:
+    """Start of the next test line."""
+    return _TEST_X_MM, _TEST_Y_MM + (_tests % _TEST_ROWS) * _TEST_STEP_MM
+
+
+def _go_to_test_spot(ad: NextDraw) -> None:
+    """Pen-up move to the next test line's start (no-op if already there)."""
+    x, y = _test_spot()
+    cx, cy = ad.turtle_pos()
+    if abs(cx - x) > 0.01 or abs(cy - y) > 0.01:
+        ad.moveto(x, y)
+
+
 def set_heights(up: int, down: int, down_max: int, position: str) -> dict:
     """Apply heights, then move the pen to ``position`` (one of POSITIONS)."""
     global _up, _down, _down_max, _position
@@ -109,6 +130,7 @@ def set_heights(up: int, down: int, down_max: int, position: str) -> dict:
         ad.options.pen_pos_down = _down_max if position == "down_max" else _down
         ad.update()          # re-inits the servo; leaves the pen up
         if position in ("down", "down_max"):
+            _go_to_test_spot(ad)
             ad.pendown()
         else:
             ad.penup()
@@ -126,13 +148,14 @@ def test_line() -> dict:
         heavy = _position == "down_max"
         ad.options.pen_pos_down = _down_max if heavy else _down
         ad.update()
-        y = _TEST_Y_MM + (_tests % _TEST_ROWS) * _TEST_STEP_MM
-        ad.moveto(_TEST_X_MM, y)
-        ad.lineto(_TEST_X_MM + _TEST_LEN_MM, y)
+        x, y = _test_spot()
+        ad.moveto(x, y)
+        ad.lineto(x + _TEST_LEN_MM, y)
         ad.penup()
+        _tests += 1
+        _go_to_test_spot(ad)  # park over the next line's start
         ad.block()
         _position = "up"
-        _tests += 1
     _emit()
     return status()
 
