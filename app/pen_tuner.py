@@ -6,6 +6,10 @@ pen down), the hardest useful press (max pen down) and the lowest lift whose
 pen-up hops stay clean (pen up) — asking for one test line per step. Heights
 are 0-100, higher = higher, so max pen down is the *lower* number.
 
+It also helps seat a new pen: hold() parks the holder lowered to a height
+(the saved lightest mark) over the test area, so the pen can be clamped
+with its tip just resting on the paper.
+
 Test lines are drawn only in a test area at least 50 mm from the home
 corner: 30 mm lines, each 6 mm below the last, in columns of 30. The pen is
 never lowered anywhere else.
@@ -119,6 +123,29 @@ def _clamp(v: int) -> int:
     return max(0, min(100, int(v)))
 
 
+def _lift_for(down: int, up: int | None) -> int:
+    """The pen-up height to use with ``down``: as given, else the saved one
+    (kept at least 10 above ``down``)."""
+    return _clamp(up) if up is not None else _clamp(max(config.PEN_POS_UP, down + 10))
+
+
+def hold(down: int, lowered: bool, up: int | None = None) -> dict:
+    """Park over the next test line's start with the holder at ``down``
+    (lowered) or lifted — for seating a new pen in the clamp."""
+    with _lock:
+        ad = _require()
+        down = _clamp(down)
+        ad.options.pen_pos_up = _lift_for(down, up)
+        ad.options.pen_pos_down = down
+        ad.update()          # re-inits the servo; leaves the pen up
+        _go_to_test_spot(ad)
+        if lowered:
+            ad.pendown()
+        ad.block()
+    _emit()
+    return status()
+
+
 def draw(down: int, up: int | None = None, dashed: bool = False) -> dict:
     """Draw the next test line at pen-down height ``down``.
 
@@ -130,8 +157,7 @@ def draw(down: int, up: int | None = None, dashed: bool = False) -> dict:
     with _lock:
         ad = _require()
         down = _clamp(down)
-        up = _clamp(up) if up is not None else _clamp(max(config.PEN_POS_UP, down + 10))
-        ad.options.pen_pos_up = up
+        ad.options.pen_pos_up = _lift_for(down, up)
         ad.options.pen_pos_down = down
         ad.update()          # re-inits the servo; leaves the pen up
         x, y = _test_spot()

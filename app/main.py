@@ -912,6 +912,12 @@ class PenLine(BaseModel):
     dashed: bool = False
 
 
+class PenHold(BaseModel):
+    pen_pos_down: int = Field(..., ge=0, le=100)
+    pen_pos_up: int | None = Field(None, ge=0, le=100)
+    lowered: bool = True
+
+
 class PenSave(BaseModel):
     pen_pos_up: int = Field(..., ge=0, le=100)
     pen_pos_down: int = Field(..., ge=0, le=100)
@@ -938,6 +944,11 @@ def pen_connect():
 @app.post("/pen/line")
 def pen_line(req: PenLine):
     return _pen_call(pen_tuner.draw, req.pen_pos_down, req.pen_pos_up, req.dashed)
+
+
+@app.post("/pen/hold")
+def pen_hold(req: PenHold):
+    return _pen_call(pen_tuner.hold, req.pen_pos_down, req.lowered, req.pen_pos_up)
 
 
 @app.post("/pen/save")
