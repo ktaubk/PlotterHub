@@ -408,6 +408,13 @@ def emit_position(x_mm: float, y_mm: float, pen_down: bool) -> None:
     _loop.call_soon_threadsafe(_event_queue.put_nowait, payload)
 
 
+def emit(payload: dict) -> None:
+    """Push an ad-hoc event (e.g. script output) to every WebSocket client."""
+    if _loop is None or _event_queue is None:
+        return
+    _loop.call_soon_threadsafe(_event_queue.put_nowait, payload)
+
+
 def clear_last_pen_position() -> None:
     global _last_pen_position
     if _last_pen_position is None:

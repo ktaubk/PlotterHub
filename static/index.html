@@ -297,6 +297,13 @@
   </div>
 
   <main>
+    <nav class="tabs" role="tablist">
+      <button class="tab active" role="tab" data-tab="queue" aria-selected="true" data-i18n="tabs.queue">Queue</button>
+      <button class="tab" role="tab" data-tab="scripts" aria-selected="false" data-i18n="tabs.scripts">Scripts</button>
+      <button class="tab" role="tab" data-tab="pen" aria-selected="false" data-i18n="tabs.pen">Pen</button>
+    </nav>
+
+    <div id="tab-queue" class="tab-panel">
     <section id="upload-section">
       <label class="drop-zone" id="drop-zone" for="file-input">
         <span data-i18n="upload.drop_hint">Drop SVGs here (or click) to add to the queue</span>
@@ -326,6 +333,87 @@
       <div id="queue-list"></div>
       <div id="queue-empty" class="muted empty-hint" data-i18n="queue.empty">Drop an SVG above to get started.</div>
     </section>
+    </div>
+
+    <div id="tab-scripts" class="tab-panel" hidden>
+      <div class="scripts-layout">
+        <section class="scripts-editor-col">
+          <div class="scripts-toolbar">
+            <select id="scripts-list" aria-label="Script" data-i18n-aria-label="tabs.scripts"></select>
+            <button id="script-new" class="neutral" data-i18n="scripts.new">New script</button>
+            <input type="text" id="script-name" spellcheck="false" placeholder="my_script.py" data-i18n-placeholder="scripts.name_placeholder" />
+            <button id="script-save" class="neutral" data-i18n="common.save">Save</button>
+            <button id="script-delete" class="neutral" data-i18n="scripts.delete">Delete</button>
+            <span class="spacer"></span>
+            <button id="script-preview" class="neutral" data-i18n="scripts.preview">Preview</button>
+            <button id="script-run" class="primary" data-i18n="scripts.run">Run on plotter</button>
+            <button id="script-stop" class="danger" hidden data-i18n="scripts.stop">Stop</button>
+          </div>
+          <div class="scripts-work">
+            <textarea id="script-code" spellcheck="false" wrap="off"></textarea>
+            <div id="script-preview-panel" class="script-preview-panel" hidden>
+              <svg id="script-preview-svg" class="script-preview-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+              <div id="script-preview-stats" class="muted"></div>
+              <div id="script-preview-warnings" class="error"></div>
+            </div>
+          </div>
+          <p class="muted" data-i18n-html="scripts.hint">Runs on the Pi with the NextDraw Python API. <code>with plotter() as ad:</code> gives a connected plotter in mm and sends it home when done.</p>
+          <div id="script-message" class="muted"></div>
+          <pre id="script-output" class="script-output"></pre>
+        </section>
+      </div>
+    </div>
+
+    <div id="tab-pen" class="tab-panel" hidden>
+      <div class="pen-card">
+        <div class="pen-head">
+          <h2 data-i18n="pen.title">Pen heights</h2>
+          <span id="pen-conn" class="muted"></span>
+          <span class="spacer"></span>
+          <button id="pen-connect" class="primary" data-i18n="pen.connect">Connect</button>
+          <button id="pen-close" class="neutral" hidden data-i18n="pen.done">Done</button>
+        </div>
+        <div class="pen-body">
+          <svg id="pen-gauge" class="pen-gauge" viewBox="0 0 70 220" aria-hidden="true"></svg>
+          <div class="pen-controls">
+            <div class="pen-row" data-which="up">
+              <span class="pen-label"><span data-i18n="pen.up">Pen up</span><small data-i18n="pen.up_hint">clears the paper</small></span>
+              <button class="neutral pen-dec">−</button>
+              <span class="pen-value" id="pen-up-value">60</span>
+              <button class="neutral pen-inc">+</button>
+              <button class="neutral pen-go" data-i18n="pen.raise">Raise</button>
+            </div>
+            <div class="pen-row" data-which="down">
+              <span class="pen-label"><span data-i18n="pen.down">Min pen down</span><small data-i18n="pen.down_hint">lightest touch that marks</small></span>
+              <button class="neutral pen-dec">−</button>
+              <span class="pen-value" id="pen-down-value">40</span>
+              <button class="neutral pen-inc">+</button>
+              <button class="neutral pen-go" data-i18n="pen.lower">Lower</button>
+            </div>
+            <div class="pen-row" data-which="down_max">
+              <span class="pen-label"><span data-i18n="pen.down_max">Max pen down</span><small data-i18n="pen.down_max_hint">hardest press before it skips</small></span>
+              <button class="neutral pen-dec">−</button>
+              <span class="pen-value" id="pen-down-max-value">25</span>
+              <button class="neutral pen-inc">+</button>
+              <button class="neutral pen-go" data-i18n="pen.lower">Lower</button>
+            </div>
+            <div class="pen-step">
+              <span data-i18n="pen.step">Step</span>
+              <button class="pen-step-btn" data-step="1">1</button>
+              <button class="pen-step-btn active" data-step="5">5</button>
+              <button class="pen-step-btn" data-step="10">10</button>
+            </div>
+            <div class="actions">
+              <button id="pen-test" class="secondary" data-i18n="pen.test_line">Draw test line</button>
+              <button id="pen-save" class="primary" data-i18n="pen.save">Save as default</button>
+            </div>
+            <div id="pen-saved" class="muted"></div>
+            <div id="pen-message" class="muted"></div>
+          </div>
+          <div class="pen-howto" data-i18n-html="pen.howto_html"></div>
+        </div>
+      </div>
+    </div>
   </main>
 
   <!-- Card template for one queue job -->
@@ -593,6 +681,16 @@
     I18N.init().then(function () {
       var s = document.createElement("script");
       s.src = "/static/app.js?v=__ASSET_VERSION__";
+      s.onload = function () {
+        var sc = document.createElement("script");
+        sc.src = "/static/scripts.js?v=__ASSET_VERSION__";
+        sc.onload = function () {
+          var pn = document.createElement("script");
+          pn.src = "/static/pen.js?v=__ASSET_VERSION__";
+          document.body.appendChild(pn);
+        };
+        document.body.appendChild(sc);
+      };
       document.body.appendChild(s);
     });
   </script>

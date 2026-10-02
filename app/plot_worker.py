@@ -42,7 +42,7 @@ _continue_event = threading.Event()        # continue: pen change within a job, 
 _calibrate_event = threading.Event()       # set alongside _continue_event to request a calibration plot from the awaiting_pen_change pause
 _worker_thread: threading.Thread | None = None
 _worker_lock = threading.Lock()
-_sleep_lock = threading.Lock()             # held while the sleep-position move owns the USB port
+_port_lock = threading.Lock()              # held while an out-of-queue task (sleep move, script) owns the USB port
 
 _poll_thread: threading.Thread | None = None
 _stop_polling = threading.Event()
@@ -94,6 +94,8 @@ def _preview_cache_key(svg_path: Path, layer_indices: list[int], job: dict) -> s
         "model": config.PLOTTER_MODEL,
         "handling": config.HANDLING,
         "penlift": config.PENLIFT,
+        "pen_up": config.PEN_POS_UP,
+        "pen_down": config.PEN_POS_DOWN,
         "sd": job["speed_pendown"],
         "su": job["speed_penup"],
         "acc": job["acceleration"],
@@ -246,11 +248,13 @@ def _stop_button_poll() -> None:
 
 # NextDraw wrappers --------------------------------------------------------
 
-def _apply_machine_options(ad: NextDraw) -> None:
+def apply_machine_options(ad: NextDraw) -> None:
     """Machine-level options that apply to every call, plot or utility."""
     ad.options.model = config.PLOTTER_MODEL
     ad.options.handling = config.HANDLING
     ad.options.penlift = config.PENLIFT
+    ad.options.pen_pos_up = config.PEN_POS_UP
+    ad.options.pen_pos_down = config.PEN_POS_DOWN
 
 
 def _run_stage(current_svg: Path, mode: str, job: dict,
@@ -260,7 +264,7 @@ def _run_stage(current_svg: Path, mode: str, job: dict,
     try:
         ad.plot_setup(str(current_svg))
         ad.options.mode = mode
-        _apply_machine_options(ad)
+        apply_machine_options(ad)
         # Per-stage speeds (a layer override resolved in _run_job) fall back to
         # the job's document/system speeds — as does a stage-less call such as
         # the calibration side-plot.
@@ -281,7 +285,7 @@ def _run_stage(current_svg: Path, mode: str, job: dict,
         _current_ad = None
 
 
-def _walk_home() -> None:
+def walk_home() -> None:
     """Return the carriage to the home corner, pen up.
 
     Replaces AxiDraw's ``res_home`` mode, which NextDraw dropped: NextDraw
@@ -298,7 +302,7 @@ def _walk_home() -> None:
             ad.plot_setup()
             ad.options.mode = "utility"
             ad.options.utility_cmd = cmd
-            _apply_machine_options(ad)
+            apply_machine_options(ad)
             ad.plot_run()
         finally:
             try:
@@ -431,16 +435,11 @@ def sleep_position() -> None:
     find_home() — reading the step counter, or running the homing sweep on a
     NextDraw that has lost its reference.
     """
-    if not _sleep_lock.acquire(blocking=False):
-        raise RuntimeError("Plotter is busy")
+    acquire_port()
     try:
-        snap = state.snapshot()
-        worker_alive = _worker_thread is not None and _worker_thread.is_alive()
-        if snap["active_id"] or snap["awaiting_next_job"] or worker_alive:
-            raise RuntimeError("Plotter is busy")
         ad = NextDraw()
         ad.interactive()
-        _apply_machine_options(ad)
+        apply_machine_options(ad)
         if not ad.connect():
             raise RuntimeError("Could not connect to the plotter")
         try:
@@ -450,7 +449,26 @@ def sleep_position() -> None:
         finally:
             ad.disconnect()
     finally:
-        _sleep_lock.release()
+        release_port()
+
+
+def acquire_port() -> None:
+    """Take the USB port for an out-of-queue task (sleep move, script run).
+
+    Raises if another such task holds it or the queue worker is active. The
+    caller must call release_port() when done — from any thread.
+    """
+    if not _port_lock.acquire(blocking=False):
+        raise RuntimeError("Plotter is busy")
+    snap = state.snapshot()
+    worker_alive = _worker_thread is not None and _worker_thread.is_alive()
+    if snap["active_id"] or snap["awaiting_next_job"] or worker_alive:
+        _port_lock.release()
+        raise RuntimeError("Plotter is busy")
+
+
+def release_port() -> None:
+    _port_lock.release()
 
 
 def pause_active() -> None:
@@ -604,7 +622,7 @@ def shutdown_gracefully(timeout_s: float = 30.0) -> None:
 def _queue_loop() -> None:
     # A sleep-position move started just before Plot still owns the USB port;
     # let it finish rather than racing it for the plotter.
-    with _sleep_lock:
+    with _port_lock:
         pass
     try:
         while True:
@@ -793,7 +811,7 @@ def _run_calibration_phase(job_id: str, svg_path: Path) -> None:
         # User cancelled mid-calibration. Home from where we stopped, then
         # leave _cancel_flag set so the caller cancels the main job.
         try:
-            _walk_home()
+            walk_home()
         except Exception:
             log.exception("calibration cancel: homing failed")
         return
@@ -972,7 +990,7 @@ def _run_staged_loop(job_id: str, svg_path: Path, first_mode: str) -> None:
                 _cancel_flag.clear()
                 state.update_job(job_id, status="homing", resume_path=str(resume_path))
                 try:
-                    _walk_home()
+                    walk_home()
                 except Exception:
                     log.exception("homing after cancel failed")
                 state.update_job(job_id, status="cancelled", resume_path=None)
@@ -997,7 +1015,7 @@ def _run_staged_loop(job_id: str, svg_path: Path, first_mode: str) -> None:
                         return
                     # homing
                     try:
-                        _walk_home()
+                        walk_home()
                     except Exception:
                         log.exception("homing after cancel failed")
                     state.update_job(job_id, status="cancelled", resume_path=None)

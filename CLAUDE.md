@@ -46,7 +46,7 @@ cleanly (`plot_status.stopped == 101`). Keep `config.json`, `state.json` and
   `plot_setup`, `plot_run(output=True)`, `plot_status.stopped`,
   `transmit_pause_request` and `res_plot` behave as in pyaxidraw.
 - **`res_home` is gone.** Homing after a cancel is utility `raise_pen` then
-  `walk_home` (`_walk_home()` in `plot_worker.py`). Raise first: `walk_home`
+  `walk_home` (`walk_home()` in `plot_worker.py`). Raise first: `walk_home`
   moves with the pen wherever it is.
 - **Never move the carriage with `walk_x`/`walk_mmx`.** They call
   `adjust_origin_offset`, shifting the *plot origin* with the carriage, and
@@ -104,6 +104,33 @@ p5.plotSvg (`setSvgGroupByStrokeColor()`).
 plotter — the lines underneath still plot. NextDraw has a `hiding`
 (hidden-line) option that uses fills, but PlotterHub doesn't expose it and it
 can't work with optimization on or after `strip_unstroked`.
+
+## Scripts tab
+
+`app/script_runner.py` runs Python from the web UI as a subprocess of the
+service's venv interpreter, holding `plot_worker`'s `_port_lock`
+(`acquire_port()` / `release_port()`) so the queue and Sleep can't touch the
+plotter meanwhile. Scripts use `plot_scripts/lib/plotterhub.py`'s
+`plotter()` (on `PYTHONPATH`; reads `PLOTTER_MODEL/PENLIFT/HANDLING` env;
+`page=(w, h)` mm is drawn as an outline in Preview).
+Examples: `plot_scripts/examples/` (tracked); UI saves: `plot_scripts/user/`
+(gitignored). Stop = SIGINT, SIGKILL after 5 s, then `walk_home()`.
+**Preview** runs the script with `plot_scripts/preview_shim/` first on
+`PYTHONPATH`: a fake `nextdraw` that records interactive moves (mm) and
+dumps JSON at exit — no hardware, no port lock. `plot_setup`/`plot_run`
+(SVG mode) isn't previewed. Keep the shim's API in step with what scripts use.
+This is arbitrary code execution for anyone on the LAN — same trust model as
+the rest of the unauthenticated web UI, but worth remembering.
+
+## Pen tab
+
+`app/pen_tuner.py` holds one interactive NextDraw session (port locked via
+`acquire_port`) so the UI can nudge `pen_pos_up/down`; each change calls
+`update()` (re-inits the servo, pen goes up) then `pendown()` if testing
+down. Auto-closes after 5 min idle. Saved heights are the `pen_pos_up` /
+`pen_pos_down` settings, applied in `apply_machine_options` and passed to
+scripts as `PLOTTER_PEN_UP/DOWN`. `/queue/start` refuses while a script or
+tuning session holds the port (`_port_taken()` in `main.py`).
 
 ## Conventions
 

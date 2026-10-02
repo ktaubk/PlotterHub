@@ -17,7 +17,8 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, ValidationError
 
-from . import config, optimize_queue, plan_queue, plot_worker, state, svg_utils, updates
+from . import (config, optimize_queue, pen_tuner, plan_queue, plot_worker,
+               script_runner, state, svg_utils, updates)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 UPLOAD_DIR = BASE_DIR / "uploads"
@@ -60,6 +61,8 @@ _WORKER_ERROR_CODES: dict[str, str] = {
     "No active job": "no_active_job",
     "Plotter is busy": "plotter_busy",
     "Could not connect to the plotter": "plotter_not_connected",
+    "No script running": "no_script_running",
+    "Pen tuning isn't connected": "pen_not_connected",
 }
 
 
@@ -81,6 +84,8 @@ async def lifespan(_app: FastAPI):
     try:
         yield
     finally:
+        await asyncio.get_running_loop().run_in_executor(None, script_runner.shutdown)
+        await asyncio.get_running_loop().run_in_executor(None, pen_tuner.close)
         await asyncio.get_running_loop().run_in_executor(None, plot_worker.shutdown_gracefully)
         # Tear down preprocessing workers after the plot worker so any
         # in-flight upload pre-opt or background plan finishes cleanly when
@@ -195,6 +200,9 @@ class SettingsUpdate(BaseModel):
     plotter_model: int | None = Field(None, ge=1, le=10)
     handling: int | None = Field(None, ge=1, le=4)
     penlift: Literal[1, 3] | None = None
+    pen_pos_up: int | None = Field(None, ge=0, le=100)
+    pen_pos_down: int | None = Field(None, ge=0, le=100)
+    pen_pos_down_max: int | None = Field(None, ge=0, le=100)
     pause_between_layers_default: bool | None = None
     pause_after_job_default: bool | None = None
     delete_on_complete_default: bool | None = None
@@ -587,6 +595,8 @@ async def api_create_job(file: UploadFile = File(...),
 
 @app.post("/api/v1/queue/plot", dependencies=[Depends(require_api_key)])
 def api_queue_plot():
+    if _port_taken():
+        raise HTTPException(409, "a script or pen-tuning session is using the plotter")
     if not any(j["status"] == "queued" for j in state.snapshot()["queue"]):
         raise HTTPException(409, "no queued job to plot")
     active = state.active_job()
@@ -751,8 +761,15 @@ def plotter_sleep():
     return {"ok": True}
 
 
+def _port_taken() -> bool:
+    """A script or pen-tuning session holds the plotter outside the queue."""
+    return script_runner.is_running() or pen_tuner.is_active()
+
+
 @app.post("/queue/start")
 def start_queue():
+    if _port_taken():
+        raise _coded(409, "plotter_busy")
     plot_worker.start_queue()
     return {"ok": True}
 
@@ -812,6 +829,127 @@ def calibrate_queue():
     except RuntimeError as e:
         raise _worker_error(e)
     return {"ok": True}
+
+
+# Scripts ----------------------------------------------------------------
+# Python scripts that drive the plotter directly (see script_runner).
+
+class ScriptSave(BaseModel):
+    code: str
+
+
+class ScriptRun(BaseModel):
+    name: str = "untitled.py"
+    code: str
+
+
+def _check_script_name(name: str) -> None:
+    if not script_runner.valid_name(name):
+        raise _coded(400, "invalid_script_name")
+
+
+@app.get("/scripts")
+def list_scripts():
+    return {"scripts": script_runner.list_scripts(), "status": script_runner.status()}
+
+
+@app.get("/scripts/{name}")
+def get_script(name: str):
+    _check_script_name(name)
+    script = script_runner.read_script(name)
+    if script is None:
+        raise _coded(404, "script_not_found")
+    return script
+
+
+@app.put("/scripts/{name}")
+def save_script(name: str, req: ScriptSave):
+    _check_script_name(name)
+    return script_runner.save_script(name, req.code)
+
+
+@app.delete("/scripts/{name}")
+def delete_script(name: str):
+    _check_script_name(name)
+    if not script_runner.delete_script(name):
+        raise _coded(404, "script_not_found")
+    return {"ok": True}
+
+
+@app.post("/scripts/run")
+def run_script(req: ScriptRun):
+    try:
+        script_runner.run(req.name, req.code)
+    except RuntimeError as e:
+        raise _worker_error(e)
+    return {"ok": True}
+
+
+class ScriptPreview(BaseModel):
+    code: str
+
+
+@app.post("/scripts/preview")
+def preview_script(req: ScriptPreview):
+    return script_runner.preview(req.code)
+
+
+@app.post("/scripts/stop")
+def stop_script():
+    try:
+        script_runner.stop()
+    except RuntimeError as e:
+        raise _worker_error(e)
+    return {"ok": True}
+
+
+# Pen heights --------------------------------------------------------------
+# Live tuning session (see pen_tuner).
+
+class PenHeights(BaseModel):
+    pen_pos_up: int = Field(..., ge=0, le=100)
+    pen_pos_down: int = Field(..., ge=0, le=100)
+    pen_pos_down_max: int = Field(..., ge=0, le=100)
+    position: Literal["up", "down", "down_max"] = "up"
+
+
+def _pen_call(fn, *args):
+    try:
+        return fn(*args)
+    except RuntimeError as e:
+        raise _worker_error(e)
+
+
+@app.get("/pen")
+def pen_status():
+    return pen_tuner.status()
+
+
+@app.post("/pen/connect")
+def pen_connect():
+    return _pen_call(pen_tuner.connect)
+
+
+@app.post("/pen/heights")
+def pen_heights(req: PenHeights):
+    return _pen_call(pen_tuner.set_heights, req.pen_pos_up, req.pen_pos_down,
+                     req.pen_pos_down_max, req.position)
+
+
+@app.post("/pen/test-line")
+def pen_test_line():
+    return _pen_call(pen_tuner.test_line)
+
+
+@app.post("/pen/save")
+def pen_save():
+    return _pen_call(pen_tuner.save)
+
+
+@app.post("/pen/close")
+def pen_close():
+    pen_tuner.close()
+    return pen_tuner.status()
 
 
 # Settings ---------------------------------------------------------------
