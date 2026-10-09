@@ -21,6 +21,7 @@
   "a11y.reset_transform": "変形をリセット",
   "a11y.move_up": "上へ移動",
   "a11y.move_down": "下へ移動",
+  "a11y.drag_to_reorder": "ドラッグで並べ替え（または Alt+↑/↓）",
   "a11y.plot_again": "再プロット",
   "a11y.remove": "削除",
   "a11y.collapse": "折りたたむ",

@@ -405,13 +405,14 @@
 
   <!-- Sidebar row for one queue job; clicking it shows the job's card -->
   <template id="job-row-template">
-    <button type="button" class="job-row" role="option" aria-selected="false" draggable="true">
+    <button type="button" class="job-row" role="option" aria-selected="false">
       <span class="job-row-thumb"><img alt="" /></span>
       <span class="job-row-text">
         <span class="job-row-name"></span>
         <span class="job-row-sub"></span>
+        <span class="job-row-status status" hidden></span>
       </span>
-      <span class="job-row-status status" hidden></span>
+      <span class="job-row-grip" aria-hidden="true">⋮⋮</span>
     </button>
   </template>
 

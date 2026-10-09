@@ -21,6 +21,7 @@
   "a11y.reset_transform": "重置变换",
   "a11y.move_up": "上移",
   "a11y.move_down": "下移",
+  "a11y.drag_to_reorder": "拖动以重新排序（或 Alt+↑/↓）",
   "a11y.plot_again": "重新绘图",
   "a11y.remove": "移除",
   "a11y.collapse": "收起",

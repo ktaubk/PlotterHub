@@ -21,6 +21,7 @@
   "a11y.reset_transform": "Reimposta trasformazione",
   "a11y.move_up": "Sposta su",
   "a11y.move_down": "Sposta giù",
+  "a11y.drag_to_reorder": "Trascina per riordinare (o Alt+↑/↓)",
   "a11y.plot_again": "Plotta di nuovo",
   "a11y.remove": "Rimuovi",
   "a11y.collapse": "Comprimi",

@@ -22,6 +22,7 @@
   "a11y.reset_transform": "Transformatie resetten",
   "a11y.move_up": "Omhoog verplaatsen",
   "a11y.move_down": "Omlaag verplaatsen",
+  "a11y.drag_to_reorder": "Sleep om te herschikken (of Alt+↑/↓)",
   "a11y.plot_again": "Opnieuw plotten",
   "a11y.remove": "Verwijderen",
   "a11y.collapse": "Inklappen",

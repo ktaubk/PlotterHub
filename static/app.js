@@ -468,10 +468,10 @@ queueList.addEventListener("keydown", async (e) => {
   if (next) selectJob(next.job_id, { focus: true });
 });
 
-// Drag rows to reorder the queue. The insertion point is the gap nearest the
-// pointer; a line marks it while dragging.
-const JOB_DRAG_TYPE = "application/x-plotterhub-job";
-let draggedJobId = null;
+// Drag rows to reorder the queue: with a mouse from anywhere on the row,
+// with a finger from the grip (elsewhere a touch scrolls the list). A line
+// marks the gap the row will drop into.
+let rowDrag = null;   // { id, row, pointerId, startY, active }
 
 function dropGapIndex(clientY) {
   const rows = Array.from(queueList.children);
@@ -487,19 +487,24 @@ function clearDropMarks() {
     .forEach((r) => r.classList.remove("drop-before", "drop-after"));
 }
 
-queueList.addEventListener("dragstart", (e) => {
-  const row = e.target.closest?.(".job-row");
-  if (!row) return;
-  draggedJobId = row.dataset.id;
-  e.dataTransfer.effectAllowed = "move";
-  e.dataTransfer.setData(JOB_DRAG_TYPE, draggedJobId);
-  row.classList.add("dragging");
+queueList.addEventListener("pointerdown", (e) => {
+  const row = e.target.closest(".job-row");
+  if (!row || e.button !== 0) return;
+  const onGrip = !!e.target.closest(".job-row-grip");
+  if (e.pointerType !== "mouse" && !onGrip) return;
+  rowDrag = { id: row.dataset.id, row, pointerId: e.pointerId, startY: e.clientY, active: false };
+  if (onGrip) e.preventDefault();
 });
 
-queueList.addEventListener("dragover", (e) => {
-  if (!draggedJobId) return;
+document.addEventListener("pointermove", (e) => {
+  if (!rowDrag || e.pointerId !== rowDrag.pointerId) return;
+  if (!rowDrag.active) {
+    if (Math.abs(e.clientY - rowDrag.startY) < 6) return;
+    rowDrag.active = true;
+    rowDrag.row.classList.add("dragging");
+    document.body.classList.add("row-dragging");
+  }
   e.preventDefault();
-  e.dataTransfer.dropEffect = "move";
   clearDropMarks();
   const rows = queueList.children;
   const gap = dropGapIndex(e.clientY);
@@ -507,23 +512,25 @@ queueList.addEventListener("dragover", (e) => {
   else rows[rows.length - 1]?.classList.add("drop-after");
 });
 
-queueList.addEventListener("drop", async (e) => {
-  if (!draggedJobId) return;
-  e.preventDefault();
-  const from = serverState.queue.findIndex((j) => j.job_id === draggedJobId);
+function endRowDrag() {
+  rowDrag?.row.classList.remove("dragging");
+  document.body.classList.remove("row-dragging");
+  clearDropMarks();
+  rowDrag = null;
+}
+
+document.addEventListener("pointerup", async (e) => {
+  if (!rowDrag || e.pointerId !== rowDrag.pointerId) return;
+  const { id, active } = rowDrag;
+  endRowDrag();
+  if (!active) return;
+  const from = serverState.queue.findIndex((j) => j.job_id === id);
   const gap = dropGapIndex(e.clientY);
   // The row leaves its old slot first, so gaps below it shift up by one.
   const to = gap > from ? gap - 1 : gap;
-  const id = draggedJobId;
-  clearDropMarks();
   if (from >= 0 && to !== from) await moveJob(id, to - from);
 });
-
-queueList.addEventListener("dragend", () => {
-  draggedJobId = null;
-  clearDropMarks();
-  queueList.querySelectorAll(".dragging").forEach((r) => r.classList.remove("dragging"));
-});
+document.addEventListener("pointercancel", endRowDrag);
 
 // Mirror a card's summary onto its sidebar row.
 function updateRow(job, sub) {
@@ -532,6 +539,7 @@ function updateRow(job, sub) {
   row.querySelector(".job-row-name").textContent = job.name || job.filename || "upload.svg";
   row.querySelector(".job-row-sub").textContent = sub;
   row.title = job.name || job.filename || "";
+  row.querySelector(".job-row-grip").title = t("a11y.drag_to_reorder");
   // "Queued" is the default; only call out the other states.
   const pill = row.querySelector(".job-row-status");
   pill.hidden = job.status === "queued";
@@ -1492,6 +1500,84 @@ function penChangeMessage(job) {
   return t("msg.awaiting_pen_change_to", { pen: nextPen });
 }
 
+function setTopMessage(text, kind = "muted", penHex = null) {
+  topMessage.className = text ? kind : "muted";
+  if (kind === "callout" && penHex) {
+    topMessage.innerHTML = `<span class="callout-pen" style="background:${escapeHtml(penHex)}"></span>`
+      + `<span>${escapeHtml(text)}</span>`;
+  } else {
+    topMessage.textContent = text;
+  }
+}
+
+// Colour of the first layer in the stage about to plot, if the SVG has one.
+function nextPenColor(job) {
+  const stage = (job.stages || [])[job.current_stage_index];
+  const idx = stage && (stage.layer_indices || [])[0];
+  const colors = cardCtx.get(job.job_id)?.svg?.layerColors || {};
+  return idx != null ? colors[idx] || null : null;
+}
+
+// ───── Attention: tab title + chime ─────────────────────────────────────
+// Plots run long and you're rarely watching. The tab title carries the state
+// (and progress while plotting), and a chime plays when the plotter starts
+// waiting on you or the queue finishes. Browsers only allow sound after a
+// click on the page, which pressing Plot always is.
+
+let attentionKey = null;      // what the plotter is waiting on; null = nothing
+let lastRunningId = null;     // job that was plotting, to tell a finish from a failure
+let audioCtx = null;
+
+document.addEventListener("pointerdown", () => {
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+  } catch {}
+}, { capture: true });
+
+function chime(notes) {
+  if (!audioCtx || audioCtx.state !== "running") return;
+  let at = audioCtx.currentTime;
+  for (const freq of notes) {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = "sine";
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.0001, at);
+    gain.gain.exponentialRampToValueAtTime(0.25, at + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.45);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start(at);
+    osc.stop(at + 0.5);
+    at += 0.18;
+  }
+}
+
+function updateAttention(s, active, status) {
+  // A pause you pressed yourself isn't waiting on you, so only these chime.
+  let key = null;
+  if (s.awaiting_next_job) key = `next:${s.active_id || ""}`;
+  else if (active && status === "awaiting_pen_change") key = `pen:${active.job_id}:${active.current_stage_index ?? ""}`;
+  const runningId = active ? active.job_id : s.awaiting_next_job ? "next" : null;
+
+  if (key && key !== attentionKey) chime([660, 880]);
+  else if (!runningId && lastRunningId) {
+    // Cancelling is your own doing, so it stays quiet.
+    const last = s.queue.find((j) => j.job_id === lastRunningId);
+    if (last?.status === "failed") chime([440, 330]);
+    else if (last?.status !== "cancelled") chime([660, 880, 1100]);
+  }
+  attentionKey = key;
+  if (runningId !== "next") lastRunningId = runningId;
+  if (!runningId) lastRunningId = null;
+
+  const app = "Plotter Hub";
+  if (key) document.title = `● ${statusLabel(s.awaiting_next_job ? "awaiting_next_job" : status)} — ${app}`;
+  else if (!active) document.title = app;
+  else if (status !== "plotting") document.title = `${statusLabel(status)} — ${app}`;
+  // While plotting, the progress timer keeps the title's percentage current.
+}
+
 function applyTopControls() {
   const s = serverState;
   const active = s.active_id ? s.queue.find((j) => j.job_id === s.active_id) : null;
@@ -1525,27 +1611,27 @@ function applyTopControls() {
     : t("controls.calibrate");
   cancelBtn.hidden = !active && !s.awaiting_next_job;
 
-  // Top status pill text
+  // Top status pill text. A pause that's waiting on you (pen swap, next
+  // sheet) gets a callout above the buttons instead of a grey line.
   if (s.awaiting_next_job) {
     statusEl.textContent = statusLabel("awaiting_next_job");
     statusEl.className = "status awaiting_next_job";
-    topMessage.textContent = t("msg.awaiting_next_job");
-    topMessage.className = "muted";
+    setTopMessage(t("msg.awaiting_next_job"), "callout");
   } else if (!active) {
     statusEl.textContent = statusLabel("idle");
     statusEl.className = "status idle";
-    topMessage.textContent = "";
+    setTopMessage("");
   } else {
     statusEl.textContent = `${statusLabel(status)}${active.filename ? ` · ${active.filename}` : ""}`;
     statusEl.className = `status ${status}`;
-    let msg = "";
-    if (active.error) msg = t("msg.error_prefix", { error: active.error });
-    else if (status === "awaiting_pen_change") msg = penChangeMessage(active);
-    else if (status === "awaiting_optimize") msg = t("msg.awaiting_optimize");
-    else if (status === "optimizing") msg = t("msg.optimizing");
-    topMessage.textContent = msg;
-    topMessage.className = active.error ? "error" : "muted";
+    if (active.error) setTopMessage(t("msg.error_prefix", { error: active.error }), "error");
+    else if (status === "awaiting_pen_change") setTopMessage(penChangeMessage(active), "callout", nextPenColor(active));
+    else if (status === "awaiting_optimize") setTopMessage(t("msg.awaiting_optimize"));
+    else if (status === "optimizing") setTopMessage(t("msg.optimizing"));
+    else setTopMessage("");
   }
+  statusEl.title = statusEl.textContent;
+  updateAttention(s, active, status);
 
   // Shutdown button: disabled while the worker is busy so the Pi can't be
   // powered off mid-plot. Safe to shut down only when idle (no active job and
@@ -1580,6 +1666,7 @@ function startSharedElapsed(startedAt, estTotal) {
     fill.style.width = `${pct}%`;
     const remaining = Math.max(0, estTotal - secs);
     timeEl.textContent = t("progress.remaining", { time: formatDuration(Math.round(remaining)) });
+    document.title = `${Math.floor(pct)}% · ${formatDuration(Math.round(remaining))} — Plotter Hub`;
   };
   render();
   sharedElapsedTimer = setInterval(render, 1000);
