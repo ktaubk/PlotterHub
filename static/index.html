@@ -301,7 +301,6 @@
     <nav class="tabs" role="tablist">
       <button class="tab active" role="tab" data-tab="queue" aria-selected="true" data-i18n="tabs.queue">Queue</button>
       <button class="tab" role="tab" data-tab="scripts" aria-selected="false" data-i18n="tabs.scripts">Scripts</button>
-      <button class="tab" role="tab" data-tab="pen" aria-selected="false" data-i18n="tabs.pen">Pen</button>
     </nav>
 
     <div id="tab-queue" class="tab-panel">
@@ -371,36 +370,6 @@
       </div>
     </div>
 
-    <div id="tab-pen" class="tab-panel" hidden>
-      <div class="pen-card">
-        <div class="pen-head">
-          <h2 data-i18n="pen.title">Pen calibration</h2>
-          <span id="pen-conn" class="muted"></span>
-          <span class="spacer"></span>
-          <button id="pen-close" class="neutral" hidden data-i18n="pen.done">Done</button>
-        </div>
-        <ol class="pen-steps" id="pen-steps">
-          <li data-step="setup" data-i18n="pen.step_setup">Set up</li>
-          <li data-step="down" data-i18n="pen.step_down">Pen down</li>
-          <li data-step="up" data-i18n="pen.step_up">Pen up</li>
-          <li data-step="review" data-i18n="pen.step_review">Save</li>
-        </ol>
-        <p class="muted pen-steps-hint" data-i18n="pen.steps_hint">Click a step to redo it; your other results are kept.</p>
-        <div class="pen-body">
-          <div class="pen-stage">
-            <p id="pen-question" class="pen-question"></p>
-            <div id="pen-answers" class="actions"></div>
-            <div id="pen-message" class="muted"></div>
-            <div class="pen-results">
-              <div class="pen-result" data-key="down"><span data-i18n="pen.step_down">Pen down</span><b>—</b></div>
-              <div class="pen-result" data-key="up"><span data-i18n="pen.step_up">Pen up</span><b>—</b></div>
-            </div>
-            <div id="pen-saved" class="muted"></div>
-          </div>
-          <ol id="pen-log" class="pen-log"></ol>
-        </div>
-      </div>
-    </div>
   </main>
 
   <!-- Sidebar row for one queue job; clicking it shows the job's card -->
@@ -682,11 +651,6 @@
       s.onload = function () {
         var sc = document.createElement("script");
         sc.src = "/static/scripts.js?v=__ASSET_VERSION__";
-        sc.onload = function () {
-          var pn = document.createElement("script");
-          pn.src = "/static/pen.js?v=__ASSET_VERSION__";
-          document.body.appendChild(pn);
-        };
         document.body.appendChild(sc);
       };
       document.body.appendChild(s);

@@ -15,7 +15,7 @@ set it on ``ad.options`` and call ``ad.update()``. On the way out (finished,
 error or Stop) the pen is raised and the carriage returns to home.
 
 Pen heights are 0-100 with higher = higher: ``pen_pos_down`` lower presses
-the pen harder into the paper. The heights saved in the Pen tab are
+the pen harder into the paper. The hub's saved heights are
 PEN_UP, PEN_DOWN_MIN (lightest touch that marks — the default pen-down) and
 PEN_DOWN_MAX (hardest useful press, a lower number):
 
@@ -65,7 +65,7 @@ def plotter(units: str = "mm", page: tuple[float, float] | None = None, **option
     ad.options.model = int(os.environ.get("PLOTTER_MODEL", "9"))
     ad.options.penlift = int(os.environ.get("PLOTTER_PENLIFT", "1"))
     ad.options.handling = int(os.environ.get("PLOTTER_HANDLING", "1"))
-    # Pen heights saved from the Pen tab; pass pen_pos_up=... to override.
+    # The hub's saved pen heights; pass pen_pos_up=... to override.
     ad.options.pen_pos_up = PEN_UP
     ad.options.pen_pos_down = PEN_DOWN_MIN
     ad.options.units = _UNITS[units]

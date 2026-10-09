@@ -2197,8 +2197,6 @@ function connectWs() {
       updatePenCursor(msg);
     } else if (msg.type.startsWith("script_") && window.onScriptEvent) {
       window.onScriptEvent(msg);
-    } else if (msg.type === "pen_status" && window.onPenEvent) {
-      window.onPenEvent(msg);
     }
   };
   ws.onclose = () => setTimeout(connectWs, 2000);

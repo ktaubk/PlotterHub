@@ -18,7 +18,6 @@ function showTab(name) {
   });
   try { localStorage.setItem(TAB_KEY, name); } catch {}
   if (name === "scripts") loadScripts();
-  if (name === "pen" && window.loadPen) window.loadPen();
 }
 
 document.querySelectorAll(".tabs .tab").forEach((b) =>
@@ -348,5 +347,4 @@ window.onScriptEvent = (msg) => {
 let initialTab = "queue";
 try { initialTab = localStorage.getItem(TAB_KEY) || "queue"; } catch {}
 window.showTab = showTab;
-// pen.js (loaded next) opens its own tab if it was the last one used.
 if (initialTab === "scripts") showTab("scripts");

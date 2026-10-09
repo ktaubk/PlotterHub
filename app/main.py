@@ -17,7 +17,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, ValidationError
 
-from . import (config, optimize_queue, pen_tuner, plan_queue, plot_worker,
+from . import (config, optimize_queue, plan_queue, plot_worker,
                script_runner, state, svg_utils, updates)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -62,7 +62,6 @@ _WORKER_ERROR_CODES: dict[str, str] = {
     "Plotter is busy": "plotter_busy",
     "Could not connect to the plotter": "plotter_not_connected",
     "No script running": "no_script_running",
-    "Pen tuning isn't connected": "pen_not_connected",
 }
 
 
@@ -85,7 +84,6 @@ async def lifespan(_app: FastAPI):
         yield
     finally:
         await asyncio.get_running_loop().run_in_executor(None, script_runner.shutdown)
-        await asyncio.get_running_loop().run_in_executor(None, pen_tuner.close)
         await asyncio.get_running_loop().run_in_executor(None, plot_worker.shutdown_gracefully)
         # Tear down preprocessing workers after the plot worker so any
         # in-flight upload pre-opt or background plan finishes cleanly when
@@ -596,7 +594,7 @@ async def api_create_job(file: UploadFile = File(...),
 @app.post("/api/v1/queue/plot", dependencies=[Depends(require_api_key)])
 def api_queue_plot():
     if _port_taken():
-        raise HTTPException(409, "a script or pen-tuning session is using the plotter")
+        raise HTTPException(409, "a script is using the plotter")
     if not any(j["status"] == "queued" for j in state.snapshot()["queue"]):
         raise HTTPException(409, "no queued job to plot")
     active = state.active_job()
@@ -762,8 +760,8 @@ def plotter_sleep():
 
 
 def _port_taken() -> bool:
-    """A script or pen-tuning session holds the plotter outside the queue."""
-    return script_runner.is_running() or pen_tuner.is_active()
+    """A script holds the plotter outside the queue."""
+    return script_runner.is_running()
 
 
 @app.post("/queue/start")
@@ -901,55 +899,6 @@ def stop_script():
     except RuntimeError as e:
         raise _worker_error(e)
     return {"ok": True}
-
-
-# Pen calibration ---------------------------------------------------------
-# Guided calibration session (see pen_tuner); the UI drives the steps.
-
-class PenLine(BaseModel):
-    pen_pos_down: int = Field(..., ge=0, le=100)
-    pen_pos_up: int | None = Field(None, ge=0, le=100)
-    dashed: bool = False
-
-
-class PenSave(BaseModel):
-    pen_pos_up: int = Field(..., ge=0, le=100)
-    pen_pos_down: int = Field(..., ge=0, le=100)
-    # The guided calibration is for regular pens and leaves this out.
-    pen_pos_down_max: int | None = Field(None, ge=0, le=100)
-
-
-def _pen_call(fn, *args):
-    try:
-        return fn(*args)
-    except RuntimeError as e:
-        raise _worker_error(e)
-
-
-@app.get("/pen")
-def pen_status():
-    return pen_tuner.status()
-
-
-@app.post("/pen/connect")
-def pen_connect():
-    return _pen_call(pen_tuner.connect)
-
-
-@app.post("/pen/line")
-def pen_line(req: PenLine):
-    return _pen_call(pen_tuner.draw, req.pen_pos_down, req.pen_pos_up, req.dashed)
-
-
-@app.post("/pen/save")
-def pen_save(req: PenSave):
-    return _pen_call(pen_tuner.save, req.pen_pos_up, req.pen_pos_down, req.pen_pos_down_max)
-
-
-@app.post("/pen/close")
-def pen_close():
-    pen_tuner.close()
-    return pen_tuner.status()
 
 
 # Settings ---------------------------------------------------------------

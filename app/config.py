@@ -52,9 +52,9 @@ _SETTINGS: list[_Setting] = [
     # Pen-lift motor: 1 = model default (brushless on NextDraw, standard servo
     # on AxiDraw), 3 = brushless upgrade fitted to an AxiDraw.
     _Setting("penlift", int, 1, lambda v: v in (1, 3)),
-    # Pen heights, 0-100 (higher = higher), found with the Pen tab. Plots use
-    # up + down (the lightest touch that marks); scripts also get down_max,
-    # the hardest useful press (a lower number). NextDraw defaults: 60 / 40.
+    # Pen heights, 0-100 (higher = higher), set via PATCH /settings. Plots use
+    # up + down; scripts also get down_max, a brush's hardest useful press (a
+    # lower number). NextDraw defaults: 60 / 40.
     _Setting("pen_pos_up", int, 60, lambda v: 0 <= v <= 100),
     _Setting("pen_pos_down", int, 40, lambda v: 0 <= v <= 100),
     _Setting("pen_pos_down_max", int, 25, lambda v: 0 <= v <= 100),
