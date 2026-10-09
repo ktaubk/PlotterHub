@@ -170,6 +170,8 @@
   "settings.updates.check_now": "Vérifier",
   "settings.updates.checking": "Vérification…",
   "controls.plot": "Tracer",
+  "controls.plot_jobs.one": "Tracer {count} tâche",
+  "controls.plot_jobs.other": "Tracer {count} tâches",
   "controls.pause": "Pause",
   "controls.pause_pen_up": "Pause au lever du stylo",
   "controls.pause_pen_up_title": "Met en pause au prochain lever de stylo pour éviter de laisser un point en plein trait (utile pour les stylos à pompe).",

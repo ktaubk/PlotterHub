@@ -170,6 +170,8 @@
   "settings.updates.check_now": "지금 확인",
   "settings.updates.checking": "확인 중…",
   "controls.plot": "플롯",
+  "controls.plot_jobs.one": "작업 {count}개 플롯",
+  "controls.plot_jobs.other": "작업 {count}개 플롯",
   "controls.pause": "일시정지",
   "controls.pause_pen_up": "펜 들 때 일시정지",
   "controls.pause_pen_up_title": "획 중간에 점이 남지 않도록 다음 펜 들기에서 일시정지해요 (펌프식 펜에 유용해요).",

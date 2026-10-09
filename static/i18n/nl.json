@@ -176,6 +176,8 @@
   "settings.updates.checking": "Controleren…",
 
   "controls.plot": "Plotten",
+  "controls.plot_jobs.one": "{count} taak plotten",
+  "controls.plot_jobs.other": "{count} taken plotten",
   "controls.pause": "Pauzeren",
   "controls.pause_pen_up": "Pauzeren bij optillen pen",
   "controls.pause_pen_up_title": "Pauzeer bij het volgende optillen van de pen om te voorkomen dat er een stip midden in een lijn achterblijft (handig voor pomppennen).",

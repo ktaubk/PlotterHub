@@ -5,6 +5,9 @@ const dropZone = $("drop-zone");
 const fileInput = $("file-input");
 const uploadError = $("upload-error");
 const queueList = $("queue-list");
+const queueLayout = $("queue-layout");
+const jobDetail = $("job-detail");
+const jobRowTemplate = $("job-row-template");
 const queueEmpty = $("queue-empty");
 const queueControls = $("queue-controls");
 const topMessage = $("top-message");
@@ -101,6 +104,7 @@ const PAPER_SIZES = {
 // Runtime state mirrored from the server.
 let serverState = { queue: [], active_id: null, awaiting_next_job: false, status: "idle" };
 const cardEls = new Map();                 // job_id → card DOM element
+const rowEls = new Map();                  // job_id → sidebar row element
 const cardCtx = new Map();                 // job_id → per-card state (svg metadata, manual-fit flag, render timer)
 let sharedElapsedTimer = null;             // single interval for the sticky-bar progress
 
@@ -132,14 +136,28 @@ fileInput.addEventListener("change", (e) => {
   handleDroppedFiles(e.target.files);
   fileInput.value = "";
 });
-dropZone.addEventListener("dragover", (e) => {
-  e.preventDefault();
-  dropZone.classList.add("drag");
+// The whole Queue tab is a drop target, so files can land anywhere once the
+// drop zone has shrunk to a bar above a full queue. dragenter/dragleave fire
+// for every child crossed, hence the depth counter.
+let dragDepth = 0;
+const isFileDrag = (e) =>
+  !$("tab-queue").hidden && Array.from(e.dataTransfer?.types || []).includes("Files");
+const endDrag = () => { dragDepth = 0; document.body.classList.remove("file-drag"); };
+document.addEventListener("dragenter", (e) => {
+  if (!isFileDrag(e)) return;
+  dragDepth++;
+  document.body.classList.add("file-drag");
 });
-dropZone.addEventListener("dragleave", () => dropZone.classList.remove("drag"));
-dropZone.addEventListener("drop", (e) => {
+document.addEventListener("dragover", (e) => {
+  if (isFileDrag(e)) e.preventDefault();
+});
+document.addEventListener("dragleave", (e) => {
+  if (isFileDrag(e) && --dragDepth <= 0) endDrag();
+});
+document.addEventListener("drop", (e) => {
+  if (!isFileDrag(e)) return;
   e.preventDefault();
-  dropZone.classList.remove("drag");
+  endDrag();
   handleDroppedFiles(e.dataTransfer.files);
 });
 
@@ -342,31 +360,122 @@ function computePaperDims(preset, orientation, customW, customH) {
 
 // ───── Queue rendering ───────────────────────────────────────────────────
 
+// The queue is a list of rows in the sidebar; the selected job's full card
+// shows in the detail panel. Every job keeps its card (hidden unless
+// selected), so card state like collapsed sections survives switching.
+
+let selectedJobId = null;
+let selectedIndex = 0;        // where the selection was, for picking a neighbour after a delete
+let lastActiveId = null;
+
 function renderQueue() {
-  const ids = new Set(serverState.queue.map((j) => j.job_id));
-  // Remove cards for jobs that no longer exist
+  const queue = serverState.queue;
+  const ids = new Set(queue.map((j) => j.job_id));
+  // Remove cards and rows for jobs that no longer exist
   for (const id of Array.from(cardEls.keys())) {
     if (!ids.has(id)) {
       cardEls.get(id).remove();
       cardEls.delete(id);
       cardCtx.delete(id);
+      rowEls.get(id)?.remove();
+      rowEls.delete(id);
     }
   }
-  // Append/move cards in order
-  for (let i = 0; i < serverState.queue.length; i++) {
-    const job = serverState.queue[i];
+  // Append/move rows in order; cards just need to exist in the panel
+  for (let i = 0; i < queue.length; i++) {
+    const job = queue[i];
     let card = cardEls.get(job.job_id);
     if (!card) {
       card = createCardForJob(job);
       cardEls.set(job.job_id, card);
+      jobDetail.appendChild(card);
+      rowEls.set(job.job_id, createRowForJob(job));
     }
-    if (card.parentElement !== queueList || Array.from(queueList.children).indexOf(card) !== i) {
-      queueList.insertBefore(card, queueList.children[i] || null);
+    const row = rowEls.get(job.job_id);
+    if (row.parentElement !== queueList || queueList.children[i] !== row) {
+      queueList.insertBefore(row, queueList.children[i] || null);
     }
     updateCard(card, job);
   }
-  queueEmpty.hidden = serverState.queue.length > 0;
-  queueControls.hidden = serverState.queue.length === 0;
+
+  // Follow the plotter: when a job starts, show it.
+  if (serverState.active_id && serverState.active_id !== lastActiveId) {
+    selectedJobId = serverState.active_id;
+  }
+  lastActiveId = serverState.active_id;
+  if (!ids.has(selectedJobId) && queue.length) {
+    selectedJobId = queue[Math.min(selectedIndex, queue.length - 1)].job_id;
+  }
+  applySelection();
+
+  queueEmpty.hidden = queue.length > 0;
+  queueControls.hidden = queue.length === 0;
+  queueLayout.classList.toggle("empty", queue.length === 0);
+  dropZone.classList.toggle("compact", queue.length > 0);
+}
+
+function applySelection() {
+  selectedIndex = Math.max(0, serverState.queue.findIndex((j) => j.job_id === selectedJobId));
+  cardEls.forEach((card, id) => {
+    const show = id === selectedJobId;
+    const wasHidden = card.hidden;
+    card.hidden = !show;
+    // The preview measures 0 wide while hidden — re-measure once it shows.
+    if (show && wasHidden) {
+      const job = serverState.queue.find((j) => j.job_id === id);
+      if (job) requestAnimationFrame(() => updatePreviewTransform(card, job));
+    }
+  });
+  rowEls.forEach((row, id) => {
+    const on = id === selectedJobId;
+    row.classList.toggle("selected", on);
+    row.setAttribute("aria-selected", on ? "true" : "false");
+    row.tabIndex = on ? 0 : -1;
+  });
+}
+
+function selectJob(id, { focus = false } = {}) {
+  selectedJobId = id;
+  applySelection();
+  const row = rowEls.get(id);
+  if (focus && row) row.focus();
+  // Stacked layout: the panel is below the list, so bring it into view.
+  if (!focus && queueLayout.offsetWidth < 900) jobDetail.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function createRowForJob(job) {
+  const row = jobRowTemplate.content.firstElementChild.cloneNode(true);
+  row.dataset.id = job.job_id;
+  row.querySelector("img").src = `/svg/${encodeURIComponent(job.svg_id)}`;
+  row.addEventListener("click", () => selectJob(job.job_id));
+  return row;
+}
+
+// Up/down arrows move through the list.
+queueList.addEventListener("keydown", (e) => {
+  if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+  const q = serverState.queue;
+  const i = q.findIndex((j) => j.job_id === selectedJobId);
+  const next = q[i + (e.key === "ArrowDown" ? 1 : -1)];
+  if (!next) return;
+  e.preventDefault();
+  selectJob(next.job_id, { focus: true });
+});
+
+// Mirror a card's summary onto its sidebar row.
+function updateRow(job, sub) {
+  const row = rowEls.get(job.job_id);
+  if (!row) return;
+  row.querySelector(".job-row-name").textContent = job.name || job.filename || "upload.svg";
+  row.querySelector(".job-row-sub").textContent = sub;
+  row.title = job.name || job.filename || "";
+  // "Queued" is the default; only call out the other states.
+  const pill = row.querySelector(".job-row-status");
+  pill.hidden = job.status === "queued";
+  pill.textContent = statusLabel(job.status);
+  pill.className = `job-row-status status ${job.status}`;
+  row.classList.toggle("active", job.job_id === serverState.active_id);
+  row.classList.toggle("has-error", !!job.error);
 }
 
 function createCardForJob(job) {
@@ -437,8 +546,6 @@ function createCardForJob(job) {
   card.querySelector(".optimize-tolerance").value = (job.optimize_svg_tolerance_mm ?? 0.10).toFixed(2);
   applyOptimizeEnabledStyle(card);
 
-  // Clicking the card header toggles expansion; action buttons stop propagation.
-  card.querySelector(".job-card-head").addEventListener("click", () => toggleCardExpanded(card));
   card.querySelectorAll(".job-actions button").forEach((b) =>
     b.addEventListener("click", (e) => e.stopPropagation())
   );
@@ -557,13 +664,10 @@ function createCardForJob(job) {
     renderLayers(card, job);
   }
 
-  // Auto-expand if this is the first card in the queue, or the currently-active job.
-  const isFirst = serverState.queue.length > 0 && serverState.queue[0].job_id === job.job_id;
-  if (isFirst || job.job_id === serverState.active_id) {
-    card.classList.add("expanded");
-    card.querySelector(".job-body").hidden = false;
-  }
-  syncJobCardCaret(card);
+  // The card only ever shows in the detail panel, always open.
+  card.classList.add("expanded");
+  card.querySelector(".job-body").hidden = false;
+  card.hidden = true;
 
   return card;
 }
@@ -676,12 +780,6 @@ function syncSectionCaret(section) {
   setCaretTooltip(caret, !section.classList.contains("collapsed"));
 }
 
-function syncJobCardCaret(card) {
-  if (!card) return;
-  const caret = card.querySelector(".job-card-head .card-section-caret");
-  setCaretTooltip(caret, card.classList.contains("expanded"));
-}
-
 function setSegmentedValue(seg, val) {
   seg.querySelectorAll("button").forEach((b) => b.classList.toggle("active", b.dataset.val === val));
 }
@@ -690,34 +788,10 @@ function getSegmentedValue(seg) {
   return seg.querySelector("button.active")?.dataset.val || "portrait";
 }
 
-function toggleCardExpanded(card) {
-  const body = card.querySelector(".job-body");
-  body.hidden = !body.hidden;
-  card.classList.toggle("expanded", !body.hidden);
-  syncJobCardCaret(card);
-  if (!body.hidden) {
-    const job = serverState.queue.find((j) => j.job_id === card.dataset.id);
-    if (job) {
-      // Body width was 0 while hidden — now that it's visible, re-measure.
-      requestAnimationFrame(() => updatePreviewTransform(card, job));
-    }
-  }
-}
-
 // ───── Per-card updates ──────────────────────────────────────────────────
 
 function updateCard(card, job) {
   const ctx = cardCtx.get(job.job_id) || {};
-
-  // Track status transitions so we can auto-collapse a card once the next job
-  // becomes active. Only flag the transition *into* a terminal state so a card
-  // that's been sitting as "completed" on page load isn't surprise-collapsed.
-  const prevStatus = ctx.lastSeenStatus;
-  if (prevStatus && prevStatus !== job.status &&
-      ["completed", "failed", "cancelled"].includes(job.status)) {
-    ctx.finishedPendingCollapse = true;
-  }
-  ctx.lastSeenStatus = job.status;
 
   const filename = job.filename || "upload.svg";
   card.querySelector(".job-filename").textContent = job.name || filename;
@@ -745,6 +819,7 @@ function updateCard(card, job) {
     subParts.push(job.plan_status === "planning" ? t("job.planning") : t("job.waiting_plan"));
   }
   card.querySelector(".job-sub").textContent = subParts.join(" · ");
+  updateRow(job, subParts.join(" · "));
 
   const pill = card.querySelector(".job-status-pill");
   pill.textContent = statusLabel(job.status);
@@ -766,23 +841,6 @@ function updateCard(card, job) {
   card.classList.toggle("readonly", activeBlocks);
   card.querySelectorAll(".col-form input, .col-form select, .col-form button")
     .forEach((el) => { el.disabled = activeBlocks; });
-
-  // Auto-expand active card
-  if (job.job_id === serverState.active_id && card.querySelector(".job-body").hidden) {
-    toggleCardExpanded(card);
-  }
-
-  // Auto-collapse a just-finished card once another job is active.
-  if (ctx.finishedPendingCollapse &&
-      serverState.active_id && serverState.active_id !== job.job_id) {
-    const body = card.querySelector(".job-body");
-    if (!body.hidden) {
-      body.hidden = true;
-      card.classList.remove("expanded");
-    }
-    ctx.finishedPendingCollapse = false;
-  }
-  syncJobCardCaret(card);
 
   // Re-queue button visible only when the job has actually been plotted at
   // least once (started_at set) AND is now in a terminal state. This avoids
@@ -1190,7 +1248,9 @@ function renderPlotInfo(card, job) {
   const el = card.querySelector(".plot-info");
   if (job.estimated_total_seconds == null) { el.hidden = true; return; }
   el.hidden = false;
-  el.querySelector(".est-time").textContent = formatDuration(Math.round(job.estimated_total_seconds));
+  el.querySelector(".est-time").textContent = job.estimated_total_seconds > 0
+    ? formatDuration(Math.round(job.estimated_total_seconds))
+    : "—";
   el.querySelector(".pendown-dist").textContent = `${(job.distance_pendown_m || 0).toFixed(2)} m`;
   el.querySelector(".total-dist").textContent = `${(job.distance_total_m || 0).toFixed(2)} m`;
   el.querySelector(".pen-lifts").textContent = `${job.pen_lifts || 0}`;
@@ -1376,7 +1436,16 @@ function applyTopControls() {
   const active = s.active_id ? s.queue.find((j) => j.job_id === s.active_id) : null;
   const status = active ? active.status : "idle";
 
-  plotBtn.hidden = !!active || s.awaiting_next_job || !s.queue.some((j) => j.status === "queued");
+  // "Plot 2 jobs · 1:20:00" — the total only once every queued job has an
+  // estimate, so it never undercounts while one is still planning.
+  const queued = s.queue.filter((j) => j.status === "queued");
+  plotBtn.hidden = !!active || s.awaiting_next_job || queued.length === 0;
+  let plotLabel = tn("controls.plot_jobs", queued.length);
+  if (queued.length && queued.every((j) => j.estimated_total_seconds > 0)) {
+    const total = queued.reduce((sum, j) => sum + j.estimated_total_seconds, 0);
+    plotLabel += ` · ${formatDuration(Math.round(total))}`;
+  }
+  plotBtn.textContent = plotLabel;
   pauseBtn.hidden = !active || status !== "plotting";
   pausePenUpBtn.hidden = !active || status !== "plotting";
   const penUpPending = !!s.pause_at_pen_up_pending;

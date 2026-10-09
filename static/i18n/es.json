@@ -170,6 +170,8 @@
   "settings.updates.check_now": "Comprobar ahora",
   "settings.updates.checking": "Comprobando…",
   "controls.plot": "Trazar",
+  "controls.plot_jobs.one": "Trazar {count} trabajo",
+  "controls.plot_jobs.other": "Trazar {count} trabajos",
   "controls.pause": "Pausar",
   "controls.pause_pen_up": "Pausar al subir la pluma",
   "controls.pause_pen_up_title": "Pausa en la siguiente subida de pluma para evitar dejar un punto a mitad de trazo (útil para plumas de bombeo).",

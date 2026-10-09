@@ -170,6 +170,8 @@
   "settings.updates.check_now": "立即检查",
   "settings.updates.checking": "检查中…",
   "controls.plot": "绘图",
+  "controls.plot_jobs.one": "绘制 {count} 个任务",
+  "controls.plot_jobs.other": "绘制 {count} 个任务",
   "controls.pause": "暂停",
   "controls.pause_pen_up": "在抬笔时暂停",
   "controls.pause_pen_up_title": "在下一次抬笔时暂停，避免在笔画中途留下墨点（适用于按压式笔）。",

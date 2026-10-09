@@ -170,6 +170,8 @@
   "settings.updates.check_now": "今すぐ確認",
   "settings.updates.checking": "確認中…",
   "controls.plot": "プロット",
+  "controls.plot_jobs.one": "{count} 件のジョブをプロット",
+  "controls.plot_jobs.other": "{count} 件のジョブをプロット",
   "controls.pause": "一時停止",
   "controls.pause_pen_up": "ペンアップ時に一時停止",
   "controls.pause_pen_up_title": "次のペンアップ時に一時停止し、ストローク途中で点が残るのを防ぎます（ポンプ式ペンに便利です）。",

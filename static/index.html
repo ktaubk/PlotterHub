@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Plotter Hub</title>
   <link rel="stylesheet" href="/static/style.css?v=__ASSET_VERSION__" />
 </head>
@@ -304,6 +305,8 @@
     </nav>
 
     <div id="tab-queue" class="tab-panel">
+    <div id="queue-layout" class="queue-layout empty">
+    <aside class="queue-side">
     <section id="upload-section">
       <label class="drop-zone" id="drop-zone" for="file-input">
         <span data-i18n="upload.drop_hint">Drop SVGs here (or click) to add to the queue</span>
@@ -314,7 +317,7 @@
 
     <section id="queue-controls" hidden>
       <div class="actions">
-        <button id="plot-btn" class="primary" data-i18n="controls.plot">Plot</button>
+        <button id="plot-btn" class="primary">Plot</button>
         <button id="pause-btn" class="secondary" hidden data-i18n="controls.pause">Pause</button>
         <button id="pause-pen-up-btn" class="secondary" hidden title="Pause at the next pen lift to avoid leaving a dot mid-stroke (useful for pump-action pens)." data-i18n="controls.pause_pen_up" data-i18n-title="controls.pause_pen_up_title">Pause at Pen Lift</button>
         <button id="resume-btn" class="primary" hidden data-i18n="controls.resume">Resume</button>
@@ -330,9 +333,13 @@
     </section>
 
     <section id="queue-section">
-      <div id="queue-list"></div>
+      <div id="queue-list" class="queue-list" role="listbox" aria-label="Queue" data-i18n-aria-label="tabs.queue"></div>
       <div id="queue-empty" class="muted empty-hint" data-i18n="queue.empty">Drop an SVG above to get started.</div>
     </section>
+    </aside>
+    <!-- The selected job's full card; the others stay in here, hidden. -->
+    <section id="job-detail" class="job-detail"></section>
+    </div>
     </div>
 
     <div id="tab-scripts" class="tab-panel" hidden>
@@ -397,6 +404,18 @@
       </div>
     </div>
   </main>
+
+  <!-- Sidebar row for one queue job; clicking it shows the job's card -->
+  <template id="job-row-template">
+    <button type="button" class="job-row" role="option" aria-selected="false">
+      <span class="job-row-thumb"><img alt="" loading="lazy" /></span>
+      <span class="job-row-text">
+        <span class="job-row-name"></span>
+        <span class="job-row-sub"></span>
+      </span>
+      <span class="job-row-status status" hidden></span>
+    </button>
+  </template>
 
   <!-- Card template for one queue job -->
   <template id="job-card-template">

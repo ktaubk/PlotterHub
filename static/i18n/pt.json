@@ -170,6 +170,8 @@
   "settings.updates.check_now": "Verificar agora",
   "settings.updates.checking": "A verificar…",
   "controls.plot": "Traçar",
+  "controls.plot_jobs.one": "Traçar {count} trabalho",
+  "controls.plot_jobs.other": "Traçar {count} trabalhos",
   "controls.pause": "Pausar",
   "controls.pause_pen_up": "Pausar ao Levantar a Caneta",
   "controls.pause_pen_up_title": "Pausa ao próximo levantamento da caneta para evitar deixar um ponto a meio de um traço (útil para canetas de bomba).",

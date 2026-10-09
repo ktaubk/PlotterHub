@@ -170,6 +170,8 @@
   "settings.updates.check_now": "Jetzt prüfen",
   "settings.updates.checking": "Prüfe…",
   "controls.plot": "Plotten",
+  "controls.plot_jobs.one": "{count} Job plotten",
+  "controls.plot_jobs.other": "{count} Jobs plotten",
   "controls.pause": "Pause",
   "controls.pause_pen_up": "Bei Stiftanhebung pausieren",
   "controls.pause_pen_up_title": "Beim nächsten Anheben des Stifts pausieren, um keinen Punkt mitten im Strich zu hinterlassen (nützlich bei Pump-Stiften).",

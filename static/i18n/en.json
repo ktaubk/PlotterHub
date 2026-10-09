@@ -176,6 +176,8 @@
   "settings.updates.checking": "Checking…",
 
   "controls.plot": "Plot",
+  "controls.plot_jobs.one": "Plot {count} job",
+  "controls.plot_jobs.other": "Plot {count} jobs",
   "controls.pause": "Pause",
   "controls.pause_pen_up": "Pause at Pen Lift",
   "controls.pause_pen_up_title": "Pause at the next pen lift to avoid leaving a dot mid-stroke (useful for pump-action pens).",

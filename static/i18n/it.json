@@ -170,6 +170,8 @@
   "settings.updates.check_now": "Controlla ora",
   "settings.updates.checking": "Controllo…",
   "controls.plot": "Plotta",
+  "controls.plot_jobs.one": "Plotta {count} lavoro",
+  "controls.plot_jobs.other": "Plotta {count} lavori",
   "controls.pause": "Pausa",
   "controls.pause_pen_up": "Pausa al sollevamento penna",
   "controls.pause_pen_up_title": "Metti in pausa al prossimo sollevamento della penna per evitare di lasciare un punto a metà tratto (utile per penne a pompa).",

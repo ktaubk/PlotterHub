@@ -104,7 +104,7 @@ body > header h1 { margin: 0; font-size: 1.25rem; font-weight: 500; color: #f4f4
 .status.cancelled { background: #6b7280; }
 .status.failed { background: #CC4D4D; }
 
-main { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
+main { max-width: 1440px; margin: 0 auto; padding: 1.5rem; }
 
 #queue-controls {
   position: sticky;
@@ -114,8 +114,88 @@ main { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
   padding: 0.75rem 0;
   background: #f4f4f4;
 }
-#queue-section { margin-top: 1rem; }
-#queue-list { display: flex; flex-direction: column; gap: 0.75rem; }
+#queue-section { margin-top: 0.25rem; }
+
+/* ───── Queue: job list on the left, the selected job on the right ───── */
+.queue-layout {
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+.queue-layout.empty { grid-template-columns: 1fr; }
+.queue-layout.empty .job-detail { display: none; }
+.queue-side {
+  position: sticky;
+  top: 1rem;
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+}
+.queue-layout:not(.empty) #queue-controls { margin-top: 0.5rem; }
+.queue-list { display: flex; flex-direction: column; gap: 0.4rem; }
+
+.job-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  padding: 0.45rem 0.6rem 0.45rem 0.45rem;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  transition: border-color 0.1s, box-shadow 0.1s;
+}
+.job-row:hover { border-color: #bbb; }
+.job-row.selected { border-color: #FEC600; box-shadow: 0 0 0 1px #FEC600; }
+.job-row.active { background: #FFFBEA; }
+.job-row:focus-visible { outline: 2px solid #222; outline-offset: 2px; }
+.job-row-thumb {
+  flex: none;
+  width: 52px;
+  height: 52px;
+  padding: 3px;
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 4px;
+}
+.job-row-thumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.job-row-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; }
+.job-row-name, .job-row-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.job-row-name { font-weight: 600; font-size: 0.92rem; }
+.job-row-sub { font-size: 0.78rem; color: #666; }
+.job-row.has-error .job-row-sub { color: #CC4D4D; }
+.job-row-status { flex: none; font-size: 0.7rem; padding: 0.15rem 0.5rem; }
+.job-row-status[hidden] { display: none; }
+
+.job-detail { min-width: 0; container-type: inline-size; }
+.job-detail .job-card-head { cursor: default; background: #fff; border-bottom: 1px solid #eee; }
+.job-detail .job-card-head .card-section-caret { display: none; }
+.job-detail .job-filename { font-size: 1.1rem; }
+.job-card[hidden] { display: none; }
+@container (max-width: 760px) {
+  .job-detail .columns { grid-template-columns: 1fr; }
+}
+@media (max-width: 900px) {
+  .queue-layout { grid-template-columns: 1fr; }
+  .queue-side { position: static; max-height: none; overflow: visible; }
+}
+@media (max-width: 600px) {
+  body > header { padding: 0.75rem 1rem; }
+  .app-logo { height: 1.5rem; }
+  .version { display: none; }
+  .header-right { gap: 0.25rem; }
+  /* The header status pill names the file while plotting; the job list
+     already shows that on a phone. */
+  #status { max-width: 7rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  main { padding: 1rem; }
+  .job-card-head { flex-wrap: wrap; row-gap: 0.4rem; }
+  .job-card-head .job-summary { flex-basis: 100%; min-width: 0; }
+  .job-filename { overflow-wrap: anywhere; }
+  .job-status-pill { margin-right: auto; }
+}
 .empty-hint { text-align: center; padding: 1.5rem; color: #888; }
 
 .job-card {
@@ -181,7 +261,11 @@ main { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
   color: #666;
   transition: border-color 0.1s, background 0.1s;
 }
-.drop-zone:hover, .drop-zone.drag { border-color: #FEC600; background: #FFFBEA; }
+.drop-zone:hover, body.file-drag .drop-zone { border-color: #FEC600; background: #FFFBEA; }
+/* Once the queue has jobs the drop zone shrinks to a bar; the whole Queue tab
+   still takes drops, and the bar lights up while a file is dragged over it. */
+.drop-zone.compact { height: 48px; border-width: 1.5px; font-size: 0.9rem; }
+body.file-drag #tab-queue { outline: 2px dashed #FEC600; outline-offset: 6px; border-radius: 12px; }
 .drop-zone.loading {
   pointer-events: none;
   color: #FEC600;
