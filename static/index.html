@@ -381,8 +381,7 @@
         </div>
         <ol class="pen-steps" id="pen-steps">
           <li data-step="setup" data-i18n="pen.step_setup">Set up</li>
-          <li data-step="min" data-i18n="pen.step_min">Lightest mark</li>
-          <li data-step="max" data-i18n="pen.step_max">Heaviest press</li>
+          <li data-step="down" data-i18n="pen.step_down">Pen down</li>
           <li data-step="up" data-i18n="pen.step_up">Pen up</li>
           <li data-step="review" data-i18n="pen.step_review">Save</li>
         </ol>
@@ -393,8 +392,7 @@
             <div id="pen-answers" class="actions"></div>
             <div id="pen-message" class="muted"></div>
             <div class="pen-results">
-              <div class="pen-result" data-key="min"><span data-i18n="pen.step_min">Lightest mark</span><b>—</b></div>
-              <div class="pen-result" data-key="max"><span data-i18n="pen.step_max">Heaviest press</span><b>—</b></div>
+              <div class="pen-result" data-key="down"><span data-i18n="pen.step_down">Pen down</span><b>—</b></div>
               <div class="pen-result" data-key="up"><span data-i18n="pen.step_up">Pen up</span><b>—</b></div>
             </div>
             <div id="pen-saved" class="muted"></div>
@@ -407,8 +405,8 @@
 
   <!-- Sidebar row for one queue job; clicking it shows the job's card -->
   <template id="job-row-template">
-    <button type="button" class="job-row" role="option" aria-selected="false">
-      <span class="job-row-thumb"><img alt="" loading="lazy" /></span>
+    <button type="button" class="job-row" role="option" aria-selected="false" draggable="true">
+      <span class="job-row-thumb"><img alt="" /></span>
       <span class="job-row-text">
         <span class="job-row-name"></span>
         <span class="job-row-sub"></span>
@@ -427,8 +425,6 @@
         </div>
         <div class="job-status-pill status"></div>
         <div class="job-actions">
-          <button class="icon-btn job-move-up" title="Move up" data-i18n-title="a11y.move_up">↑</button>
-          <button class="icon-btn job-move-down" title="Move down" data-i18n-title="a11y.move_down">↓</button>
           <button class="icon-btn job-requeue" title="Plot again" hidden data-i18n-title="a11y.plot_again">↻</button>
           <button class="icon-btn job-delete" title="Remove" data-i18n-title="a11y.remove">✕</button>
           <span class="card-section-caret" aria-hidden="true">▼</span>

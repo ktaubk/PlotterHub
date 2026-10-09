@@ -1,10 +1,10 @@
 """Pen calibration: hold an interactive NextDraw session so the web UI's
 guided calibration (static/pen.js) can draw test lines at chosen heights.
 
-The UI walks through three questions — the lightest height that marks (min
-pen down), the hardest useful press (max pen down) and the lowest lift whose
-pen-up hops stay clean (pen up) — asking for one test line per step. Heights
-are 0-100, higher = higher, so max pen down is the *lower* number.
+The UI calibrates a regular pen in two questions — the height where a line
+first comes out solid (pen down is saved a little below it) and the lowest
+lift whose pen-up hops stay clean (pen up) — asking for one test line per
+step. Heights are 0-100, higher = higher.
 
 Connecting forces a real homing sweep first, so the test area is measured
 from the true corner. Test lines are drawn only in a test area at least
@@ -15,8 +15,9 @@ The session owns the USB port (plot_worker.acquire_port) from connect until
 close, so the queue, Sleep and scripts are refused meanwhile. It closes
 itself after _IDLE_TIMEOUT_S without a request so a forgotten tab can't
 hold the plotter forever. Results are saved as the hub's pen_pos_up /
-pen_pos_down / pen_pos_down_max settings: plots use up + min down; scripts
-also get max down (e.g. as a pressure range for a brush).
+pen_pos_down settings. pen_pos_down_max (a brush's hardest press, for
+scripts) isn't calibrated here; it's only pulled down to stay at or below
+pen down.
 """
 
 import logging
@@ -155,9 +156,12 @@ def draw(down: int, up: int | None = None, dashed: bool = False) -> dict:
     return status()
 
 
-def save(up: int, down: int, down_max: int) -> dict:
+def save(up: int, down: int, down_max: int | None = None) -> dict:
     with _lock:
-        config.update(pen_pos_up=_clamp(up), pen_pos_down=_clamp(down),
+        down = _clamp(down)
+        if down_max is None:
+            down_max = min(config.PEN_POS_DOWN_MAX, down)  # keep it the harder press
+        config.update(pen_pos_up=_clamp(up), pen_pos_down=down,
                       pen_pos_down_max=_clamp(down_max))
     _emit()
     return status()

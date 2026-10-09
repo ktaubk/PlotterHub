@@ -1,9 +1,9 @@
-// Pen tab: guided pen calibration (app/pen_tuner.py draws the test lines).
-// Steps: set up → lightest mark (min pen down) → heaviest press (max pen
-// down) → pen up → save. Each step draws one test line, asks what it looks
-// like, and picks the next height from the answer. Click a step in the step
-// bar to redo just that one; the other results are kept. Heights are 0-100,
-// higher = higher, so pressing harder means a lower number.
+// Pen tab: guided calibration for a regular pen (app/pen_tuner.py draws the
+// test lines). Steps: set up → pen down → pen up → save. Each step draws one
+// test line, asks what it looks like, and picks the next height from the
+// answer. Click a step in the step bar to redo just that one; the other
+// results are kept. Heights are 0-100, higher = higher. Brush pressure
+// (pen_pos_down_max) isn't calibrated here and is left as it was.
 // Loaded after scripts.js; app.js forwards pen_status events to window.onPenEvent.
 
 const penClose = $("pen-close");
@@ -14,14 +14,16 @@ const penMessage = $("pen-message");
 const penSaved = $("pen-saved");
 const penLog = $("pen-log");
 
-const COARSE = 5;   // search step; the lightest mark is then refined by 1
+const COARSE = 5;   // search step; the first solid line is then refined by 1
+const MARGIN = 3;   // pen down sits this far below the first solid line
 
 let pen = { active: false, tests: 0, saved_up: 60, saved_down: 40, saved_down_max: 25 };
 let cal = null;     // calibration state, reset by resetCal()
 let penBusy = false;
 
 function resetCal() {
-  cal = { step: "setup", min: null, max: null, up: null, h: null, prev: null,
+  // edge: first height that drew a solid line; down = edge - MARGIN.
+  cal = { step: "setup", edge: null, down: null, up: null, h: null,
           lastNo: null, coarseMark: null, fine: false, saved: false };
   penLog.replaceChildren();
 }
@@ -124,111 +126,85 @@ async function ensureConnected() {
 }
 
 async function startCalibration() {
-  if (await ensureConnected()) startStep("min");
+  if (await ensureConnected()) startStep("down");
 }
 
 // Begin (or redo) one search step from its starting height.
 function startStep(step) {
   cal.step = step;
   setPenMessage("");
-  if (step === "min") {
+  if (step === "down") {
     cal.fine = false;
     cal.lastNo = cal.coarseMark = null;
-    cal.h = Math.min(100, (cal.min ?? pen.saved_down) + 15);   // start clear of the paper
-    return minTrial();
+    // Start clear of the paper.
+    cal.h = Math.min(100, (cal.edge ?? pen.saved_down + MARGIN) + 15);
+    return downTrial();
   }
-  if (step === "max") {
-    if (cal.min === 0) return foundMax(0);
-    cal.prev = cal.min;
-    cal.h = Math.max(0, cal.min - COARSE);
-    return maxTrial();
-  }
-  cal.h = Math.min(100, cal.min + 2 * COARSE);
+  cal.h = Math.min(100, cal.down + 2 * COARSE);
   upTrial();
 }
 
 // After a step: run the first one still missing, else go to Save.
 function nextStep() {
   cal.saved = false;
-  const missing = ["min", "max", "up"].find((k) => cal[k] == null);
+  const missing = ["down", "up"].find((k) => cal[k] == null);
   if (missing) startStep(missing);
   else stepReview();
 }
 
-// Lightest mark: step down by COARSE until a line marks, then go back to
-// the last blank height and step down by 1 to find the exact one.
-async function minTrial() {
+// Pen down: step down by COARSE until a line comes out solid, then go back
+// to the last skipping height and step down by 1 to find the exact edge.
+async function downTrial() {
   const n = await drawLine(cal.h);
-  if (n == null) return ask(penQuestion.textContent, [[t("pen.retry"), "primary", minTrial]]);
-  ask(t("pen.min_q", { n, h: cal.h }), [
-    [t("pen.no_mark"), "neutral", () => { answerLog(t("pen.r_no_mark"), "no"); minNoMark(); }],
-    [t("pen.marks"), "primary", () => { answerLog(t("pen.r_mark"), "yes"); minMarks(); }],
+  if (n == null) return ask(penQuestion.textContent, [[t("pen.retry"), "primary", downTrial]]);
+  ask(t("pen.down_q", { n, h: cal.h }), [
+    [t("pen.skips"), "neutral", () => { answerLog(t("pen.r_skips"), "no"); downSkips(); }],
+    [t("pen.solid"), "primary", () => { answerLog(t("pen.r_solid"), "yes"); downSolid(); }],
   ]);
 }
 
-function minNoMark() {
+function downSkips() {
   cal.lastNo = cal.h;
   const next = cal.h - (cal.fine ? 1 : COARSE);
   // Never redraw a height already known to mark: that's the answer range.
-  if (cal.coarseMark != null && next <= cal.coarseMark) return narrowMin(cal.coarseMark);
-  if (next < 0) { setPenMessage(t("pen.limit", { h: 0 })); return foundMin(0); }
+  if (cal.coarseMark != null && next <= cal.coarseMark) return narrowDown(cal.coarseMark);
+  if (next < 0) { setPenMessage(t("pen.limit", { h: 0 })); return foundDown(0); }
   cal.h = next;
-  minTrial();
+  downTrial();
 }
 
-function minMarks() {
-  if (cal.fine) return foundMin(cal.h);
+function downSolid() {
+  if (cal.fine) return foundDown(cal.h);
   if (cal.lastNo == null) {
-    // The very first line marked, so the search started too low: go higher.
-    if (cal.h >= 100) return foundMin(100);
+    // The very first line was solid, so the search started too low: go higher.
+    if (cal.h >= 100) return foundDown(100);
     cal.coarseMark = cal.h;
     cal.h = Math.min(100, cal.h + 2 * COARSE);
-    return minTrial();
+    return downTrial();
   }
-  narrowMin(cal.h);
+  narrowDown(cal.h);
 }
 
-// ``mark`` marks and cal.lastNo doesn't: refine between them by 1.
-function narrowMin(mark) {
-  if (cal.fine || cal.lastNo - mark <= 1) return foundMin(mark);
+// ``solid`` is solid and cal.lastNo skips: refine between them by 1.
+function narrowDown(solid) {
+  if (cal.fine || cal.lastNo - solid <= 1) return foundDown(solid);
   cal.fine = true;
-  cal.coarseMark = mark;
+  cal.coarseMark = solid;
   cal.h = cal.lastNo - 1;
-  minTrial();
+  downTrial();
 }
 
-function foundMin(h) {
-  cal.min = h;
-  if (h === 0) cal.max = 0;   // can't press harder than 0
+// Sit a little below the edge so slightly uneven paper still marks.
+function foundDown(edge) {
+  cal.edge = edge;
+  cal.down = Math.max(0, edge - MARGIN);
   nextStep();
 }
 
-// Heaviest press: keep pressing harder by COARSE while lines improve.
-async function maxTrial() {
-  const n = await drawLine(cal.h);
-  if (n == null) return ask(penQuestion.textContent, [[t("pen.retry"), "primary", maxTrial]]);
-  ask(t("pen.max_q", { n, h: cal.h, prev: cal.prev }), [
-    [t("pen.harder"), "neutral", () => {
-      answerLog(t("pen.r_better"), "yes");
-      if (cal.h === 0) { setPenMessage(t("pen.limit", { h: 0 })); return foundMax(0); }
-      cal.prev = cal.h;
-      cal.h = Math.max(0, cal.h - COARSE);
-      maxTrial();
-    }],
-    [t("pen.use_this"), "primary", () => { answerLog(t("pen.r_chosen"), "yes"); foundMax(cal.h); }],
-    [t("pen.too_far", { prev: cal.prev }), "neutral", () => { answerLog(t("pen.r_too_far"), "no"); foundMax(cal.prev); }],
-  ]);
-}
-
-function foundMax(h) {
-  cal.max = h;
-  nextStep();
-}
-
-// Pen up: dashes at the lightest mark with pen-up hops at the test height;
-// raise the lift until the gaps stay clean.
+// Pen up: dashes at pen down with pen-up hops at the test height; raise the
+// lift until the gaps stay clean.
 async function upTrial() {
-  const n = await drawLine(cal.min, { up: cal.h, dashed: true });
+  const n = await drawLine(cal.down, { up: cal.h, dashed: true });
   if (n == null) return ask(penQuestion.textContent, [[t("pen.retry"), "primary", upTrial]]);
   ask(t("pen.up_q", { n, h: cal.h }), [
     [t("pen.gaps_marked"), "neutral", () => {
@@ -248,19 +224,19 @@ function foundUp(h) {
 
 function stepReview() {
   cal.step = "review";
-  const vals = { up: cal.up, down: cal.min, max: cal.max };
+  const vals = { up: cal.up, down: cal.down, margin: cal.edge - cal.down };
   const buttons = [
     [t("pen.sample"), "secondary", drawSample],
     [t("pen.save"), "primary", saveCalibration],
     [t("pen.restart"), "neutral", () => { resetCal(); startCalibration(); }],
   ];
   ask(cal.saved ? t("pen.saved_now", vals) : t("pen.review_text", vals), buttons);
-  if (!(cal.up > cal.min && cal.min >= cal.max)) setPenMessage(t("pen.order_warn"), true);
+  if (!(cal.up > cal.down)) setPenMessage(t("pen.order_warn"), true);
 }
 
 async function drawSample() {
   const note = t("pen.r_sample");
-  for (const [down, opts] of [[cal.min, {}], [cal.max, {}], [cal.min, { up: cal.up, dashed: true }]]) {
+  for (const [down, opts] of [[cal.down, {}], [cal.down, { up: cal.up, dashed: true }]]) {
     if (await drawLine(down, { ...opts, note }) == null) break;
   }
   stepReview();
@@ -268,7 +244,7 @@ async function drawSample() {
 
 async function saveCalibration() {
   try {
-    await penRequest("/pen/save", { pen_pos_up: cal.up, pen_pos_down: cal.min, pen_pos_down_max: cal.max });
+    await penRequest("/pen/save", { pen_pos_up: cal.up, pen_pos_down: cal.down });
     cal.saved = true;
   } catch (e) {
     setPenMessage(t("error.request_failed", { message: e.message }), true);
@@ -284,12 +260,11 @@ function stepDone(step) {
   return cal[step] != null;
 }
 
-// Lightest mark can always be (re)done; the others need it first, and Save
-// needs all three.
+// Pen down can always be (re)done; pen up needs it first, and Save needs both.
 function stepAvailable(step) {
-  if (step === "setup" || step === "min") return true;
-  if (step === "review") return cal.min != null && cal.max != null && cal.up != null;
-  return cal.min != null;
+  if (step === "setup" || step === "down") return true;
+  if (step === "review") return cal.down != null && cal.up != null;
+  return cal.down != null;
 }
 
 async function goToStep(step) {
@@ -320,12 +295,12 @@ function renderPen() {
     li.classList.toggle("available", ok);
     li.setAttribute("aria-disabled", ok ? "false" : "true");
   });
-  for (const key of ["min", "max", "up"]) {
+  for (const key of ["down", "up"]) {
     const el = document.querySelector(`.pen-result[data-key="${key}"]`);
     el.querySelector("b").textContent = cal[key] ?? "—";
     el.classList.toggle("found", cal[key] != null);
   }
-  penSaved.textContent = t("pen.saved", { up: pen.saved_up, down: pen.saved_down, max: pen.saved_down_max });
+  penSaved.textContent = t("pen.saved", { up: pen.saved_up, down: pen.saved_down });
 }
 
 penClose.addEventListener("click", async () => {

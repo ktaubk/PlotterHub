@@ -915,7 +915,8 @@ class PenLine(BaseModel):
 class PenSave(BaseModel):
     pen_pos_up: int = Field(..., ge=0, le=100)
     pen_pos_down: int = Field(..., ge=0, le=100)
-    pen_pos_down_max: int = Field(..., ge=0, le=100)
+    # The guided calibration is for regular pens and leaves this out.
+    pen_pos_down_max: int | None = Field(None, ge=0, le=100)
 
 
 def _pen_call(fn, *args):

@@ -130,18 +130,21 @@ the rest of the unauthenticated web UI, but worth remembering.
 
 A guided calibration (`static/pen.js` drives the steps; `app/pen_tuner.py`
 holds one interactive NextDraw session, port locked via `acquire_port`, and
-draws each test line). Steps: lightest mark (step 5 down until it marks,
-then refine by 1) → heaviest press (5 harder while it improves) → pen up
-(dashed line; raise 5 while the gaps pick up marks) → sample + save.
+draws each test line). It's for regular pens, not brushes. Steps: pen down
+(step 5 down until the line is solid, refine by 1, then save `MARGIN` = 3
+below that edge for uneven paper) → pen up (dashed line; raise 5 while the
+gaps pick up marks) → sample + save.
 Clicking a step chip redoes just that step (others kept), then returns to
-Save; a height already known to mark is never redrawn. Test
+Save; a height already known to be solid is never redrawn. Test
 lines only go in the test area from (50, 50) mm: 30 mm long, 6 mm apart,
 30 per column. Connect runs `plot_worker.force_home()` first (raise pen + `mode="find_home"`,
 which clears the homed flag): a homed NextDraw otherwise trusts a stale step
 count after the carriage is pushed by hand, and the test area lands short.
 Auto-closes after 5 min idle. Results are the `pen_pos_up` /
-`pen_pos_down` / `pen_pos_down_max` settings, applied in
-`apply_machine_options` and passed to scripts as `PLOTTER_PEN_UP/DOWN/DOWN_MAX`.
+`pen_pos_down` settings, applied in `apply_machine_options` and passed to
+scripts as `PLOTTER_PEN_UP/DOWN`. `pen_pos_down_max` (a brush's hardest
+press, `PLOTTER_PEN_DOWN_MAX`) isn't calibrated; saving only pulls it down
+to stay ≤ pen down.
 `/queue/start` refuses while a script or calibration holds the port
 (`_port_taken()` in `main.py`). To click through it without hardware, run
 the app with `PYTHONPATH=plot_scripts/preview_shim` (the fake `nextdraw`).

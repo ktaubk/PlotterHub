@@ -447,19 +447,82 @@ function createRowForJob(job) {
   const row = jobRowTemplate.content.firstElementChild.cloneNode(true);
   row.dataset.id = job.job_id;
   row.querySelector("img").src = `/svg/${encodeURIComponent(job.svg_id)}`;
+  row.querySelector("img").draggable = false;
   row.addEventListener("click", () => selectJob(job.job_id));
   return row;
 }
 
-// Up/down arrows move through the list.
-queueList.addEventListener("keydown", (e) => {
+// Up/down arrows move through the list; with Alt they move the selected job.
+queueList.addEventListener("keydown", async (e) => {
   if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
   const q = serverState.queue;
   const i = q.findIndex((j) => j.job_id === selectedJobId);
-  const next = q[i + (e.key === "ArrowDown" ? 1 : -1)];
-  if (!next) return;
+  const delta = e.key === "ArrowDown" ? 1 : -1;
   e.preventDefault();
-  selectJob(next.job_id, { focus: true });
+  if (e.altKey) {
+    await moveJob(selectedJobId, delta);
+    rowEls.get(selectedJobId)?.focus();
+    return;
+  }
+  const next = q[i + delta];
+  if (next) selectJob(next.job_id, { focus: true });
+});
+
+// Drag rows to reorder the queue. The insertion point is the gap nearest the
+// pointer; a line marks it while dragging.
+const JOB_DRAG_TYPE = "application/x-plotterhub-job";
+let draggedJobId = null;
+
+function dropGapIndex(clientY) {
+  const rows = Array.from(queueList.children);
+  const i = rows.findIndex((r) => {
+    const box = r.getBoundingClientRect();
+    return clientY < box.top + box.height / 2;
+  });
+  return i < 0 ? rows.length : i;
+}
+
+function clearDropMarks() {
+  queueList.querySelectorAll(".drop-before, .drop-after")
+    .forEach((r) => r.classList.remove("drop-before", "drop-after"));
+}
+
+queueList.addEventListener("dragstart", (e) => {
+  const row = e.target.closest?.(".job-row");
+  if (!row) return;
+  draggedJobId = row.dataset.id;
+  e.dataTransfer.effectAllowed = "move";
+  e.dataTransfer.setData(JOB_DRAG_TYPE, draggedJobId);
+  row.classList.add("dragging");
+});
+
+queueList.addEventListener("dragover", (e) => {
+  if (!draggedJobId) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = "move";
+  clearDropMarks();
+  const rows = queueList.children;
+  const gap = dropGapIndex(e.clientY);
+  if (gap < rows.length) rows[gap].classList.add("drop-before");
+  else rows[rows.length - 1]?.classList.add("drop-after");
+});
+
+queueList.addEventListener("drop", async (e) => {
+  if (!draggedJobId) return;
+  e.preventDefault();
+  const from = serverState.queue.findIndex((j) => j.job_id === draggedJobId);
+  const gap = dropGapIndex(e.clientY);
+  // The row leaves its old slot first, so gaps below it shift up by one.
+  const to = gap > from ? gap - 1 : gap;
+  const id = draggedJobId;
+  clearDropMarks();
+  if (from >= 0 && to !== from) await moveJob(id, to - from);
+});
+
+queueList.addEventListener("dragend", () => {
+  draggedJobId = null;
+  clearDropMarks();
+  queueList.querySelectorAll(".dragging").forEach((r) => r.classList.remove("dragging"));
 });
 
 // Mirror a card's summary onto its sidebar row.
@@ -550,8 +613,6 @@ function createCardForJob(job) {
     b.addEventListener("click", (e) => e.stopPropagation())
   );
   card.querySelector(".job-delete").addEventListener("click", () => deleteJob(job.job_id));
-  card.querySelector(".job-move-up").addEventListener("click", () => moveJob(job.job_id, -1));
-  card.querySelector(".job-move-down").addEventListener("click", () => moveJob(job.job_id, +1));
   card.querySelector(".job-requeue").addEventListener("click", () => requeueJob(job.job_id));
 
   // Settings changes
